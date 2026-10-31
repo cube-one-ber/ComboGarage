@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#f4f1ea">
+<title>Combo Garage · Mario Kart World stat lab</title>
+<meta name="description" content="Pick a Mario Kart World driver and vehicle with the game's real stat tables, path-traced vehicle renders and what top players actually drive.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 4'%3E%3Crect width='4' height='4' rx='.8' fill='%23fff'/%3E%3Cpath d='M0 0h1v1H0zM2 0h1v1H2zM1 1h1v1H1zM3 1h1v1H3zM0 2h1v1H0zM2 2h1v1H2zM1 3h1v1H1zM3 3h1v1H3z' fill='%23141826'/%3E%3C/svg%3E">
+<link rel="preload" href="fonts/NinDev-RaceFontMoveR.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/FOT-RodinNTLGPro-EB.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="data.json" as="fetch" crossorigin>
+<link rel="stylesheet" href="styles.css">
+<script defer src="app.js"></script>
+</head>
+<body>
+<a class="skip" href="#garage">Skip to the garage</a>
+
+<header class="topbar">
+  <a class="logo" href="#garage" aria-label="Combo Garage">
+    <span class="logo-flag" aria-hidden="true"></span>
+    <span class="logo-word">Combo <span>Garage</span></span>
+  </a>
+  <nav class="topnav" aria-label="Sections">
+    <a href="#garage">Garage</a>
+    <a href="#meta">Meta</a>
+    <a href="#finder">Finder</a>
+    <a href="#compare">Compare <span class="pill-count" id="compareCount">0</span></a>
+  </nav>
+  <button class="btn btn-ghost" id="openSaved" type="button">Saved <span class="pill-count" id="savedCount">0</span></button>
+</header>
+
+<main>
+<!-- ============================================================ GARAGE -->
+<section id="garage" class="garage" aria-label="Combo builder">
+  <div class="stage" id="stage">
+    <div class="stage-names">
+      <p class="eyebrow">Driver</p>
+      <h1 class="race stage-driver-name" id="driverName">—</h1>
+      <div class="outfits" id="outfits" role="group" aria-label="Outfit"></div>
+      <p class="eyebrow stage-on">on the</p>
+      <h2 class="race stage-vehicle-name" id="vehicleName">—</h2>
+    </div>
+    <p class="stage-tags" id="stageTags"></p>
+    <div class="stage-floor" aria-hidden="true"></div>
+    <img class="stage-driver" id="stageDriver" alt="" width="425" height="540" decoding="async">
+    <div class="stage-vehicle-wrap">
+      <img class="stage-vehicle" id="stageVehicle" alt="" width="1920" height="1280" decoding="async">
+    </div>
+    <div class="spin" id="spin" aria-hidden="true">
+      <div class="spin-row" data-row="driver"><span class="spin-label">Driver</span><div class="spin-track"><div class="spin-strip"></div></div></div>
+      <div class="spin-row" data-row="type"><span class="spin-label">Kart or bike</span><div class="spin-track"><div class="spin-strip"></div></div></div>
+      <div class="spin-row" data-row="vehicle"><span class="spin-label">Vehicle</span><div class="spin-track"><div class="spin-strip"></div></div></div>
+    </div>
+    <div class="stage-bar">
+      <button class="btn btn-light" id="shuffle" type="button">Shuffle</button>
+      <button class="btn btn-light btn-icon" id="soundToggle" type="button" aria-pressed="true" aria-label="Shuffle sound">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4Z" fill="currentColor"/><path class="on" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.6 7.6 0 0 1 0 11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path class="off" d="m15.5 9.5 5 5m0-5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <div class="veh-nav" role="group" aria-label="Browse vehicles">
+        <button class="stage-arrow" id="prevVehicle" type="button" aria-label="Previous vehicle"><span aria-hidden="true">‹</span></button>
+        <span class="veh-nav-label" aria-hidden="true">Vehicle</span>
+        <button class="stage-arrow" id="nextVehicle" type="button" aria-label="Next vehicle"><span aria-hidden="true">›</span></button>
+      </div>
+      <span class="grow"></span>
+      <button class="btn btn-light" id="share" type="button">Copy link</button>
+      <button class="btn btn-light" id="addCompare" type="button">+ Compare</button>
+      <button class="btn btn-primary" id="save" type="button">Save combo</button>
+    </div>
+  </div>
+
+  <aside class="panel stats-panel" aria-labelledby="statsTitle">
+    <div class="panel-head">
+      <h2 id="statsTitle" class="panel-title">Stats</h2>
+      <div class="seg" role="group" aria-label="Terrain" id="terrainSeg">
+        <button type="button" data-terrain="Tarmac" aria-pressed="true">Road</button>
+        <button type="button" data-terrain="Gravel" aria-pressed="false">Off-road</button>
+        <button type="button" data-terrain="Water" aria-pressed="false">Water</button>
+      </div>
+    </div>
+    <ul class="legend" aria-label="Meter key">
+      <li><i class="key key-driver"></i>Driver</li>
+      <li><i class="key key-bonus"></i>Vehicle bonus</li>
+      <li><i class="key key-penalty"></i>Taken by vehicle</li>
+    </ul>
+    <div class="meters" id="meters"></div>
+    <div class="meta-score" id="metaScore"></div>
+    <div class="twins" id="twins"></div>
+    <details class="all-stats">
+      <summary>All 19 stats</summary>
+      <div class="table-wrap" id="allStats"></div>
+    </details>
+  </aside>
+</section>
+
+<!-- ============================================================ CHOOSER -->
+<section class="chooser" aria-label="Choose a driver or vehicle">
+  <div class="chooser-head">
+    <div class="tabs" role="tablist" aria-label="Pick">
+      <button role="tab" id="tabDrivers" aria-selected="true" aria-controls="chooserGrid" type="button">Drivers <span class="muted" id="driverTotal"></span></button>
+      <button role="tab" id="tabVehicles" aria-selected="false" aria-controls="chooserGrid" type="button">Vehicles <span class="muted" id="vehicleTotal"></span></button>
+    </div>
+    <div class="chooser-tools">
+      <label class="search"><span class="sr">Search</span><input id="search" type="search" placeholder="Search drivers" autocomplete="off"></label>
+      <div class="seg seg-sm" role="group" aria-label="Vehicle type" id="rideSeg" hidden></div>
+      <label class="select"><span class="sr">Sort</span>
+        <select id="sort">
+          <option value="class">By stat class</option>
+          <option value="speed">Fastest first</option>
+          <option value="accel">Quickest first</option>
+          <option value="name">A–Z</option>
+        </select>
+      </label>
+    </div>
+  </div>
+  <p class="chooser-hint" id="chooserHint">Hover to preview the change in the stats panel. Everyone in a row shares exactly the same stats.</p>
+  <div id="chooserGrid" role="tabpanel" aria-labelledby="tabDrivers"></div>
+</section>
+
+<!-- ============================================================ META -->
+<section id="meta" class="section" aria-labelledby="metaTitle">
+  <header class="section-head">
+    <p class="eyebrow">The meta, explained</p>
+    <h2 class="race section-title" id="metaTitle">Speed barely moves. Acceleration does.</h2>
+    <p class="lede">Every stat becomes a level from 0 to 25. The game then looks that level up in a multiplier table. Some tables barely change from level 0 to 25. Others more than double. That spread, together with what the best players actually pick, is the meta.</p>
+  </header>
+
+  <div class="meta-grid">
+    <article class="panel chart-card">
+      <h3 class="chart-title">How far each stat can move</h3>
+      <p class="chart-sub">Multiplier range across all 480 driver–vehicle pairings, road terrain. ×1.00 is neutral.</p>
+      <ul class="legend legend-inline" aria-label="Chart key">
+        <li><i class="key key-range"></i>Possible range</li>
+        <li><i class="key key-dot"></i>Your combo</li>
+      </ul>
+      <div class="impact" id="impactChart"></div>
+      <p class="footnote">Each ratio scales a different base value inside the game, so a ×2 here and a ×1.04 there are not the same seconds on the clock. The spread shows where combos differ most.</p>
+    </article>
+
+    <article class="panel chart-card">
+      <h3 class="chart-title">What the top 100 drove</h3>
+      <p class="chart-sub" id="openSub"></p>
+      <div class="waffle" id="waffle" role="img"></div>
+      <div class="open-summary" id="openSummary"></div>
+    </article>
+  </div>
+
+  <article class="panel chart-card coin-card">
+    <div class="coin-copy">
+      <h3 class="chart-title">Coins pay light builds first</h3>
+      <p class="chart-sub">The speed bonus from coins, by coins held. Every combo reaches the same +5% at 20 coins. Coin speed bends the curve, so it decides how soon you get there.</p>
+      <ul class="legend legend-stack" id="coinLegend" aria-label="Chart key"></ul>
+      <div class="table-wrap" id="coinTable"></div>
+    </div>
+    <div class="coin-plot" id="coinChart"></div>
+  </article>
+
+  <div class="takeaways">
+    <article class="takeaway"><span class="take-num">1</span><h3>Light drivers rule online</h3><p>The four lightest characters share one stat class. It has the highest acceleration, mini-turbo, handling grip and coin speed in the game.</p></article>
+    <article class="takeaway"><span class="take-num">2</span><h3>Coins pay light builds first</h3><p>Everyone gets the same bonus at 20 coins. Coin speed decides how early it arrives: at 5 coins the best combo already has +3.0%, the worst +0.6%.</p></article>
+    <article class="takeaway"><span class="take-num">3</span><h3>Speed is three stats</h3><p>Road, off-road and water speed are separate stats. Baby Blooper is +2 on road but −3 off-road and on water.</p></article>
+  </div>
+
+  <h3 class="sub-title">Meta builds</h3>
+  <div class="builds" id="builds"></div>
+
+  <h3 class="sub-title">What every stat does</h3>
+  <dl class="glossary" id="glossary"></dl>
+</section>
+
+<!-- ============================================================ FINDER -->
+<section id="finder" class="section" aria-labelledby="finderTitle">
+  <header class="section-head">
+    <p class="eyebrow">Finder</p>
+    <h2 class="race section-title" id="finderTitle">Build for the way you race.</h2>
+    <p class="lede">Weight the stats you care about. Each pairing gets a score: the weighted average of where each stat sits in its possible range. Pairings with identical stats are grouped.</p>
+  </header>
+
+  <div class="filter-row" role="group" aria-label="Finder settings">
+    <div class="seg" role="group" aria-label="Preset" id="presetSeg"></div>
+    <div class="seg" role="group" aria-label="Terrain" id="finderTerrainSeg">
+      <button type="button" data-terrain="Tarmac" aria-pressed="true">Road</button>
+      <button type="button" data-terrain="Gravel" aria-pressed="false">Off-road</button>
+      <button type="button" data-terrain="Water" aria-pressed="false">Water</button>
+    </div>
+    <label class="check"><input type="checkbox" id="lockDriver"> Keep my driver</label>
+    <label class="check"><input type="checkbox" id="lockVehicle"> Keep my vehicle</label>
+  </div>
+
+  <div class="finder-grid">
+    <div class="panel weights" id="weights" aria-label="Stat weights"></div>
+    <div class="finder-main">
+      <ol class="results" id="results"></ol>
+      <article class="panel chart-card map-card">
+        <div class="map-head">
+          <div>
+            <h3 class="chart-title">Combo map</h3>
+            <p class="chart-sub">Every pairing by level. Darker means a higher score. The line joins pairings that nothing beats on both axes.</p>
+          </div>
+          <div class="map-axes">
+            <label class="select"><span class="muted">Across</span> <select id="axisX"></select></label>
+            <label class="select"><span class="muted">Up</span> <select id="axisY"></select></label>
+          </div>
+        </div>
+        <ul class="legend legend-inline" aria-label="Map key">
+          <li><i class="key key-seq"></i>Score (low → high)</li>
+          <li><i class="key key-front"></i>Best trade-off line</li>
+          <li><i class="key key-you"></i>Your combo</li>
+        </ul>
+        <div class="map" id="map"></div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ COMPARE -->
+<section id="compare" class="section" aria-labelledby="compareTitle">
+  <header class="section-head">
+    <p class="eyebrow">Compare</p>
+    <h2 class="race section-title" id="compareTitle">Side by side.</h2>
+    <p class="lede">Add up to three combos from the garage, the finder or your saved list.</p>
+  </header>
+  <div id="compareBody"></div>
+</section>
+
+<footer class="footer" id="method">
+  <div class="footer-grid">
+    <div>
+      <a class="logo logo-footer" href="#garage"><span class="logo-flag" aria-hidden="true"></span><span class="logo-word">Combo <span>Garage</span></span></a>
+      <p class="muted">An unofficial fan tool. Mario Kart World, its characters, vehicles, art and fonts © Nintendo.</p>
+    </div>
+    <div>
+      <h3>How the numbers work</h3>
+      <p>Level = driver points + vehicle points, clamped to 0–25 (main <code>0x515300</code>). The game reads that level's multiplier from the performance table each frame (<code>0x65b660</code>). It also picks road, off-road or water speed and handling from the surface under the wheels. Blank table cells are ×1.000 (<code>0x3e01f0</code>, <code>0x1fc0b50</code>). Standard Kart and Plushbuggy fall back to class V01 (<code>0xab2dc0</code>). CPU racers use a separate row, so these numbers are for players.</p>
+      <p>Food isn't a stat. It's a timed boost and is left out.</p>
+    </div>
+    <div>
+      <h3>Sources</h3>
+      <p>Stats: <code id="srcArchive"></code> from the game files. Competitive picks: <a id="openLink" href="#" rel="noopener">Nintendo's Mario Kart World Open results</a>. Vehicle renders: the game's highest-detail models and textures, path-traced in Blender Cycles at 3840×2560. Character art and fonts come from the game's UI.</p>
+    </div>
+  </div>
+</footer>
+</main>
+
+<dialog id="savedDialog" aria-labelledby="savedTitle">
+  <div class="dialog-head">
+    <h2 id="savedTitle" class="race">Saved combos</h2>
+    <button class="icon-btn" type="button" data-close aria-label="Close">×</button>
+  </div>
+  <div id="savedBody"></div>
+</dialog>
+
+<svg class="sr" aria-hidden="true"><filter id="spinBlur1"><feGaussianBlur stdDeviation="5 0"/></filter><filter id="spinBlur2"><feGaussianBlur stdDeviation="11 0"/></filter><filter id="spinBlur3"><feGaussianBlur stdDeviation="20 0"/></filter></svg>
+<canvas class="coins" id="coins" aria-hidden="true"></canvas>
+<div class="tooltip" id="tooltip" role="tooltip" hidden></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
