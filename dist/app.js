@@ -150,10 +150,12 @@ function statTip(k, title, d = state.driver, v = state.vehicle) {
 function setCombo(d, v, opts = {}) {
   if (spin.on) spin.cancel = true;   // picking by hand beats a spin in progress
   const dc = d !== state.driver, vc = v !== state.vehicle;
+  const before = vc && !opts.spun && !calmMotion() ? snapshotMeters() : null;
   state.driver = d; state.vehicle = v;
   state.preview = null;
   renderStage(dc, vc, opts.back);
   renderStats();
+  if (before) tweenMeters(before);
   syncChooser();
   renderImpact();
   renderCoins();
@@ -166,23 +168,129 @@ const pair = () => ({ d: state.driver.id, v: state.vehicle.id });
 const same = (a, b) => a.d === b.d && a.v === b.v;
 const resolve = p => ({ d: drivers.get(p.d), v: vehicles.get(p.v) });
 
+/* ------------------------------------------------------------ vehicle change
+   The old vehicle squats and pulls away. The new one arrives, overruns its mark, dips its nose
+   under braking and rocks back. Going backwards plays it in reverse. Only transform and opacity
+   animate, so the browser can keep it smooth on its compositor. */
+const calmMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+function setVehicleImage(img, v) {
+  img.srcset = `${vSrc(v.id, 1200)} 1200w, ${vSrc(v.id, 1920)} 1920w`;
+  img.sizes = '(max-width: 720px) 110vw, (max-width: 1180px) 80vw, 62vw';
+  img.src = vSrc(v.id, 1920);
+  img.alt = v.name + ', studio render';
+}
+function preloadNeighbours() {
+  const n = D.vehicles.length, i = D.vehicles.findIndex(v => v.id === state.vehicle.id);
+  for (const d of [-1, 1]) setVehicleImage(new Image(), D.vehicles[(i + d + n) % n]);
+}
+let lastSwap = 0;
+function driveSwap(v, back, oldName) {
+  const wrap = $('.stage-vehicle-wrap'), cur = $('#stageVehicle'), s = back ? -1 : 1, now = performance.now();
+  const pace = now - lastSwap < 450 ? .62 : 1;   // keep up with quick clicks
+  lastSwap = now;
+  for (const a of wrap.getAnimations({ subtree: true })) a.cancel();
+  $$('.veh-ghost', wrap).forEach(e => e.remove());
+  const ghost = () => {
+    const g = cur.cloneNode();
+    g.removeAttribute('id'); g.alt = ''; g.classList.add('veh-ghost');
+    wrap.append(g);
+    return g;
+  };
+  const leaving = [ghost(), ghost(), ghost()];
+  setVehicleImage(cur, v);
+  const arriving = [cur, ghost(), ghost()];
+
+  const leave = [
+    { transform: 'none' },
+    { transform: `translateX(${-s * 6}%) rotate(${s * .9}deg) skewX(${s * 2}deg)`, offset: .24 },
+    { transform: `translateX(${-s * 140}%) rotate(${s * .4}deg) scaleX(1.1) skewX(${s * 7}deg)` },
+  ];
+  const arrive = [
+    { transform: `translateX(${s * 125}%) scaleX(1.1) skewX(${s * 7}deg)`, easing: 'cubic-bezier(.08,.72,.2,1)' },
+    { transform: `translateX(${-s * 2.8}%) rotate(${-s * 1.8}deg) skewX(${s * 2}deg)`, offset: .56, easing: 'ease-in-out' },
+    { transform: `translateX(${s * .9}%) rotate(${s * .8}deg) skewX(${-s * .8}deg)`, offset: .79, easing: 'ease-in-out' },
+    { transform: 'none' },
+  ];
+  const out = { duration: 300 * pace, easing: 'cubic-bezier(.42,0,.85,.5)', fill: 'forwards' };
+  const inn = { duration: 620 * pace, delay: 200 * pace, fill: 'backwards' };
+  leaving.forEach((g, i) => {
+    g.animate(leave, { ...out, delay: i * 16 });
+    if (i) g.animate([{ opacity: 0 }, { opacity: .22 / i, offset: .34 }, { opacity: 0, offset: .9 }], { ...out, delay: i * 16 });
+  });
+  const last = leaving[0].getAnimations()[0];
+  last.onfinish = () => leaving.forEach(g => g.remove());
+  arriving.forEach((g, i) => {
+    const a = g.animate(arrive, { ...inn, delay: inn.delay + i * 16 });
+    if (!i) return;
+    g.animate([{ opacity: .22 / i }, { opacity: .22 / i, offset: .14 }, { opacity: 0, offset: .36 }], { ...inn, delay: inn.delay + i * 16, fill: 'both' });
+    a.onfinish = () => g.remove();
+  });
+  rush(s, pace);
+  nameSwap(oldName, s, pace);
+}
+function rush(s, pace) {
+  const box = $('#stageRush'), W = box.clientWidth;
+  box.replaceChildren();
+  for (let i = 0; i < 14; i++) {
+    const w = 160 + Math.random() * 380, low = i % 2 === 1;
+    const bar = h('i', { class: low ? 'low' : '', style: `top:${(low ? 62 : 16) + Math.random() * 28}%;${s > 0 ? 'left:100%' : `left:${-w}px`};width:${w}px` });
+    box.append(bar);
+    bar.animate([
+      { transform: 'none', opacity: 0 },
+      { opacity: 1, offset: .22 },
+      { opacity: 0, transform: `translateX(${-s * (W + w * 1.3)}px)` },
+    ], { duration: (340 + Math.random() * 260) * pace, delay: 40 + Math.random() * 200 * pace, easing: 'cubic-bezier(.25,.2,.55,1)', fill: 'backwards' }).onfinish = () => bar.remove();
+  }
+}
+function nameSwap(oldName, s, pace) {
+  const el = $('#vehicleName');
+  for (const a of el.getAnimations()) a.cancel();
+  $$('.name-ghost').forEach(e => e.remove());
+  const g = el.cloneNode(false);
+  g.removeAttribute('id'); g.setAttribute('aria-hidden', 'true'); g.classList.add('name-ghost');
+  g.classList.toggle('long', oldName.length > 13);
+  g.textContent = oldName;
+  g.style.left = el.offsetLeft + 'px'; g.style.top = el.offsetTop + 'px';
+  el.after(g);
+  g.animate([{ opacity: 1 }, { opacity: 0, transform: `translateX(${-s * 54}px) skewX(${s * 9}deg)` }], { duration: 170 * pace, easing: 'ease-in', fill: 'forwards' }).onfinish = () => g.remove();
+  el.animate([
+    { opacity: 0, transform: `translateX(${s * 60}px) skewX(${s * 9}deg)` },
+    { opacity: 1, transform: `translateX(${-s * 3}px) skewX(${-s * 2}deg)`, offset: .66 },
+    { opacity: 1, transform: 'none' },
+  ], { duration: 420 * pace, delay: 175 * pace, easing: 'cubic-bezier(.16,.8,.3,1)', fill: 'backwards' });
+}
+function snapshotMeters() {
+  return $$('#meters .meter').map(m => ({ level: +$('.meter-level', m).textContent, segs: $$('.segs i', m).map(i => i.className) }));
+}
+function tweenMeters(before) {   // ripple the segments that changed and count up to the new level
+  const after = $$('#meters .meter');
+  if (before.length !== after.length) return;
+  after.forEach((m, i) => {
+    const was = before[i], num = $('.meter-level', m), to = +num.textContent;
+    $$('.segs i', m).forEach((seg, j) => { if (seg.className !== was.segs[j]) seg.classList.add('flip'); });
+    if (to === was.level) return;
+    num.textContent = was.level;
+    const t0 = performance.now();
+    const run = t => {
+      const u = clamp((t - t0 - 90) / 380, 0, 1);
+      if (num.isConnected) num.textContent = Math.round(was.level + (to - was.level) * (1 - (1 - u) ** 3));
+      if (u < 1 && num.isConnected) requestAnimationFrame(run);
+    };
+    requestAnimationFrame(run);
+  });
+}
+
 function renderStage(dc, vc, back) {
-  const { driver: d, vehicle: v } = state, st = $('#stage');
+  const { driver: d, vehicle: v } = state, st = $('#stage'), oldName = $('#vehicleName').textContent;
   $('#driverName').textContent = d.name;
   $('#driverName').classList.toggle('long', d.name.length > 8);
   $('#vehicleName').textContent = v.name;
   $('#vehicleName').classList.toggle('long', v.name.length > 13);
-  const vi = $('#stageVehicle'), di = $('#stageDriver');
-  vi.srcset = `${vSrc(v.id, 1200)} 1200w, ${vSrc(v.id, 1920)} 1920w`;
-  vi.sizes = '(max-width: 720px) 110vw, (max-width: 1180px) 80vw, 62vw';
-  vi.src = vSrc(v.id, 1920);
-  vi.alt = v.name + ', studio render';
+  if (vc && !calmMotion()) driveSwap(v, back, oldName); else setVehicleImage($('#stageVehicle'), v);
+  const di = $('#stageDriver');
   di.src = dBig(d.id);
   di.alt = d.name + (d.outfit === 'Standard' ? '' : ' in the ' + d.outfit + ' outfit');
-  const again = cls => { st.classList.remove(cls); void st.offsetWidth; st.classList.add(cls); };
-  st.classList.toggle('back', !!back);
-  if (vc) again('swap-v');
-  if (dc) again('swap-d');
+  if (dc) { st.classList.remove('swap-d'); void st.offsetWidth; st.classList.add('swap-d'); }
   const rank = comboRank(d.cls, v.cls);
   $('#stageTags').replaceChildren(...[
     rank === 1 ? h('span', { class: 'tag tag-hot', text: 'Online meta #1' }) : null,
@@ -858,11 +966,15 @@ function endSpin() {
   $('#meters').classList.remove('rolling');
   spinChrome(false);
 }
+/* The vehicle is drawn from all of them, so each one is equally likely
+   and row 2 lands on kart or bike in proportion to how many of each there are. */
+function pickCombo() {
+  const c = pick(D.characters), v = pick(D.vehicles), kart = v.ride === 'Kart';
+  return { d: drivers.get(pick(c.outfits).id), v, kart, pool: D.vehicles.filter(x => (x.ride === 'Kart') === kart) };
+}
 async function shuffle() {
   if (spin.on) { spin.skip = true; return; }
-  const c = pick(D.characters), d = drivers.get(pick(c.outfits).id);
-  const kart = Math.random() < .5, word = kart ? 'kart' : 'bike';
-  const pool = D.vehicles.filter(v => (v.ride === 'Kart') === kart), v = pick(pool);
+  const { d, v, kart, pool } = pickCombo(), word = kart ? 'kart' : 'bike';
   const rank = comboRank(d.cls, v.cls), said = `${d.name} + ${v.name} · Online meta #${rank} of ${usedD.length * usedV.length}`;
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) { setCombo(d, v); toast(said); return; }
 
@@ -899,7 +1011,7 @@ async function shuffle() {
   if (!spin.skip) await wait(500);
 
   endSpin();
-  setCombo(d, v);
+  setCombo(d, v, { spun: true });
   const m = $('#meters');
   m.classList.add('settle');
   setTimeout(() => m.classList.remove('settle'), 900);
@@ -951,12 +1063,18 @@ function setFinderTerrain(t) {
 function step(delta) {
   const i = D.vehicles.findIndex(v => v.id === state.vehicle.id);
   setCombo(state.driver, D.vehicles[(i + delta + D.vehicles.length) % D.vehicles.length], { back: delta < 0 });
+  preloadNeighbours();
+}
+function arrow(btn, delta) {
+  if (!calmMotion()) btn.animate([{ transform: 'none' }, { transform: `translateX(${delta * 4}px) scale(.92)`, offset: .4 }, { transform: 'none' }], { duration: 220, easing: 'ease-out' });
+  step(delta);
 }
 function wire() {
   $('#terrainSeg').addEventListener('click', e => { const b = e.target.closest('[data-terrain]'); if (b) setTerrain(b.dataset.terrain); });
   $('#finderTerrainSeg').addEventListener('click', e => { const b = e.target.closest('[data-terrain]'); if (b) setFinderTerrain(b.dataset.terrain); });
-  $('#prevVehicle').onclick = () => step(-1);
-  $('#nextVehicle').onclick = () => step(1);
+  $('#prevVehicle').onclick = e => arrow(e.currentTarget, -1);
+  $('#nextVehicle').onclick = e => arrow(e.currentTarget, 1);
+  $('.veh-nav').addEventListener('pointerenter', preloadNeighbours, { once: true });
   $('#stage').addEventListener('keydown', e => { if (e.key === 'ArrowLeft') step(-1); if (e.key === 'ArrowRight') step(1); });
   $('#shuffle').onclick = shuffle;
   for (const ev of ['pointerenter', 'focus', 'touchstart']) $('#shuffle').addEventListener(ev, prepSpin, { passive: true });

@@ -10,7 +10,7 @@ It covers all 50 characters, their 153 outfits and the 40 vehicles: live stat me
 
 ## Shuffle
 
-Three rows spin in the stage and stop in turn: driver, then kart or bike (50/50), then a vehicle of that type. The third row stays locked until the second lands. A kart or bike is picked first and the vehicle second, so each kart comes up less often than each bike (23 karts against 17 bikes). The meters roll during the spin, show the driver's points when row 1 lands, and add the vehicle at the end. The coin burst grows with the Online meta rank.
+Three rows spin in the stage and stop in turn: driver, then kart or bike, then a vehicle of that type. The third row stays locked until the second lands. Every vehicle is equally likely, so the second row lands on kart or bike 23:17, matching how many of each there are. The meters roll during the spin, show the driver's points when row 1 lands, and add the vehicle at the end. The coin burst grows with the Online meta rank.
 
 Press Shuffle again to skip. Picking a driver or vehicle by hand cancels the spin. With reduced motion on, it picks instantly. Sound uses the game's roulette, stop and coin effects, with a mute button remembered in the browser.
 
