@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://combogarage.pages.dev/sitemap.xml
