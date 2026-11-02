@@ -644,6 +644,11 @@ dialog::backdrop { background: rgba(20,24,38,.45); backdrop-filter: blur(4px); }
 .footer .muted { color: rgba(255,255,255,.55); margin-top: 14px; }
 .footer code { background: rgba(255,255,255,.1); color: #fff; }
 .footer a { color: var(--yellow); }
+.footer-bottom { width: var(--wrap); margin: 28px auto 0; padding-top: 24px; border-top: 1px solid rgba(255,255,255,.14); text-align: center; }
+.footer .github-link { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 12px; border-radius: 10px; color: #fff; font: 900 14px/1.4 var(--ui); text-decoration: none; }
+.github-link svg { display: block; flex: none; }
+.footer .github-link:hover { color: var(--yellow); }
+.github-link:focus-visible { outline-color: var(--yellow); }
 .logo-footer .logo-word { color: #fff; }
 .logo-footer .logo-flag { box-shadow: inset 0 0 0 2px #fff, 0 3px 0 var(--yellow); background: conic-gradient(#fff 25%, var(--ink) 0 50%, #fff 0 75%, var(--ink) 0) 0 0 / 12px 12px; }
 
