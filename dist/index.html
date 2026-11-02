@@ -112,6 +112,28 @@
       <div class="table-wrap" id="allStats"></div>
     </details>
   </aside>
+
+  <section class="coin-dial" id="coinDial" aria-labelledby="coinTitle">
+    <div class="coin-read">
+      <span class="coin-sprite" id="coinSprite" aria-hidden="true"></span>
+      <div>
+        <h2 class="eyebrow" id="coinTitle">Coins held</h2>
+        <p class="coin-count race"><span id="coinCount">0</span><small>/20</small></p>
+      </div>
+    </div>
+    <div class="coin-control">
+      <button class="stage-arrow" id="coinDown" type="button" aria-label="Drop a coin"><span aria-hidden="true">−</span></button>
+      <div class="coin-track">
+        <div class="coin-pips" id="coinPips" aria-hidden="true"></div>
+        <input id="coinRange" type="range" min="0" max="20" step="1" value="0" aria-labelledby="coinTitle">
+      </div>
+      <button class="stage-arrow" id="coinUp" type="button" aria-label="Add a coin"><span aria-hidden="true">+</span></button>
+    </div>
+    <div class="coin-out">
+      <p class="eyebrow" id="coinCaption">Top speed at 0 coins</p>
+      <div class="coin-speeds" id="coinSpeeds"></div>
+    </div>
+  </section>
 </section>
 
 <!-- ============================================================ CHOOSER -->
@@ -134,7 +156,7 @@
       </label>
     </div>
   </div>
-  <p class="chooser-hint" id="chooserHint">Hover to preview the change in the stats panel. Everyone in a row shares exactly the same stats.</p>
+  <p class="chooser-hint" id="chooserHint">Hover to preview the change in the stats and top speeds. Everyone in a row shares exactly the same stats.</p>
   <div id="chooserGrid" role="tabpanel" aria-labelledby="tabDrivers"></div>
 </section>
 
@@ -169,11 +191,11 @@
   <article class="panel chart-card coin-card">
     <div class="coin-copy">
       <h3 class="chart-title">Coins pay light builds first</h3>
-      <p class="chart-sub">The speed bonus from coins, by coins held. Every combo reaches the same +5% at 20 coins. Coin speed bends the curve, so it decides how soon you get there. On dirt, rails and walls, it's the only speed difference between combos.</p>
+      <p class="chart-sub">The speed bonus from coins, by coins held. Every combo reaches the same +5% at 20 coins. Coin speed bends the curve, so it decides how soon you get there. On dirt, rails and walls, it's the only speed difference between combos. Click or drag the chart to set your coins.</p>
       <ul class="legend legend-stack" id="coinLegend" aria-label="Chart key"></ul>
       <div class="table-wrap" id="coinTable"></div>
     </div>
-    <div class="coin-plot" id="coinChart"></div>
+    <div class="coin-plot" id="coinChart" tabindex="0" role="slider" aria-label="Coins held" aria-valuemin="0" aria-valuemax="20"></div>
   </article>
 
   <div class="takeaways">
@@ -242,6 +264,17 @@
     <p class="lede">Add up to three combos from the garage, the finder or your saved list.</p>
   </header>
   <div id="compareBody"></div>
+  <article class="panel chart-card coin-card cmp-coins" id="raceCard" hidden>
+    <div class="coin-copy">
+      <h3 class="chart-title" id="raceTitle"></h3>
+      <p class="chart-sub">The surface's speed with each combo's coin bonus. Click or drag the chart to set your coins.</p>
+      <ul class="legend legend-stack" id="raceLegend" aria-label="Combos"></ul>
+      <p class="coin-lead" id="raceLead"></p>
+      <div class="table-wrap" id="raceTable"></div>
+    </div>
+    <div class="coin-plot" id="raceChart" tabindex="0" role="slider" aria-label="Coins held" aria-valuemin="0" aria-valuemax="20"></div>
+  </article>
+  <div id="compareLevels"></div>
 </section>
 
 <footer class="footer" id="method">
@@ -252,7 +285,7 @@
     </div>
     <div>
       <h3>How the numbers work</h3>
-      <p>Level = driver points + vehicle points, clamped to 0–25 (main <code>0x515300</code>). The game reads that level's multiplier from the performance table each frame (<code>0x65b660</code>). It also picks road, off-road or water speed and handling from the surface under the wheels. Blank table cells are ×1.000 (<code>0x3e01f0</code>, <code>0x1fc0b50</code>). Standard Kart and Plushbuggy fall back to class V01 (<code>0xab2dc0</code>). CPU racers use a separate row, so these numbers are for players.</p>
+      <p>Level = driver points + vehicle points, clamped to 0–25 (main <code>0x515300</code>). The game reads that level's multiplier from the performance table each frame (<code>0x65b660</code>). It also picks road, off-road or water speed and handling from the surface under the wheels. Blank table cells are ×1.000 (<code>0x3e01f0</code>, <code>0x1fc0b50</code>). Standard Kart and Plushbuggy fall back to class V01 (<code>0xab2dc0</code>). Top speed is that surface multiplier × (1 + 0.05 × the coin curve), so 20 coins adds 5% on every combo (<code>0x65a220</code>, <code>0x654360</code>). CPU racers use a separate row, so these numbers are for players.</p>
       <p>Food isn't a stat. It's a timed boost and is left out.</p>
     </div>
     <div>

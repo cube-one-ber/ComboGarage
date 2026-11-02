@@ -40,6 +40,11 @@ const CORE = [
 const SAME = ' Every combo has the same value, so it never separates two builds.';
 const SAME_BASE = ' This value is the same on every combo, so coins are what separate builds here. Everyone matches at 0 and 20 coins. In between, higher coin speed goes faster.';
 const COIN_ONLY = ['TopSpeedDirt', 'TopSpeedRailSlide', 'TopSpeedWallRide'];
+const COIN_MAX = 20;
+const SURFACES = [
+  ['TopSpeedTarmac', 'Road'], ['TopSpeedGravel', 'Off-road'], ['TopSpeedWater', 'Water'], ['TopSpeedGlide', 'Glide'],
+  ['TopSpeedDirt', 'Dirt'], ['TopSpeedRailSlide', 'Rail'], ['TopSpeedWallRide', 'Wall'],
+];
 /* Each description comes from tracing the stat through the game's code (see the README). */
 const STAT_INFO = {
   TopSpeedTarmac: 'Scales your speed on road. The game checks the ground under you every frame and switches between road, off-road and water speed to match.',
@@ -71,7 +76,7 @@ const PRESETS = {
 
 /* ------------------------------------------------------------ state */
 const state = {
-  driver: null, vehicle: null, terrain: 'Tarmac', preview: null,
+  driver: null, vehicle: null, terrain: 'Tarmac', coins: 0, preview: null,
   tab: 'drivers', search: '', sort: 'class', ride: 'all',
   finder: { preset: 'online', terrain: 'Tarmac', weights: { ...PRESETS.online.w }, lockD: false, lockV: false, x: 'speed', y: 'accel' },
   saved: [], compare: [],
@@ -94,6 +99,11 @@ function coinBonus(r, coins) {
   const easeOut = Math.sqrt(1 - (1 - c) ** 2), easeIn = 1 - Math.sqrt(1 - c * c);
   return (easeIn + sh * (easeOut - easeIn)) * 5;
 }
+/* Top speed: 0x654360 caches surface ratio × speed scale as the speed cap (+0x21c),
+   and 0x65a220 builds the speed scale as 1 + 0.05 × the coin curve. Gliding swaps the surface ratio only. */
+const coinScale = (dc, vc, coins = state.coins) => 1 + coinBonus(ratio('CoinSpeedRatio', level(dc, vc, 'CoinSpeedRatio')), coins) / 100;
+const topSpeed = (dc, vc, k, coins = state.coins) => ratio(k, level(dc, vc, k)) * coinScale(dc, vc, coins);
+const coinWord = n => n + (n === 1 ? ' coin' : ' coins');
 function scorer(weights, terrain) {
   const parts = CORE.map(c => [c.key(terrain), weights[c.id] || 0]).filter(p => p[1] > 0);
   const total = parts.reduce((a, p) => a + p[1], 0);
@@ -144,10 +154,15 @@ function statTip(k, title, d = state.driver, v = state.vehicle) {
   if (k === 'CoinSpeedRatio') {
     const r = ratio(k, l);
     nodes.push(h('div', { class: 'tt-sub', text: `Bonus at 5 / 10 / 20 coins: +${coinBonus(r, 5).toFixed(1)}% / +${coinBonus(r, 10).toFixed(1)}% / +5.0%` }));
+    if (state.coins) nodes.push(h('div', { class: 'tt-sub', text: `Bonus at ${coinWord(state.coins)}: +${coinBonus(r, state.coins).toFixed(1)}%` }));
   }
   if (COIN_ONLY.includes(k)) {
     const r = ratio('CoinSpeedRatio', level(d.cls, v.cls, 'CoinSpeedRatio'));
     nodes.push(h('div', { class: 'tt-sub', text: `Coin bonus at 1 / 5 / 10 coins: +${coinBonus(r, 1).toFixed(1)}% / +${coinBonus(r, 5).toFixed(1)}% / +${coinBonus(r, 10).toFixed(1)}%` }));
+  }
+  if (k.startsWith('TopSpeed') && state.coins) {
+    const sc = coinScale(d.cls, v.cls);
+    nodes.push(h('div', { class: 'tt-sub', text: `With ${coinWord(state.coins)}: ${fmtRatio(ratio(k, l))} × ${sc.toFixed(3)} = ${fmtRatio(ratio(k, l) * sc)}` }));
   }
   return nodes;
 }
@@ -167,7 +182,11 @@ function setCombo(d, v, opts = {}) {
   renderCoins();
   renderFinderResults();
   syncButtons();
-  const q = new URLSearchParams({ d: d.id, v: v.id });
+  syncUrl();
+}
+function syncUrl() {
+  const q = new URLSearchParams({ d: state.driver.id, v: state.vehicle.id });
+  if (state.coins) q.set('c', state.coins);
   history.replaceState(null, '', '?' + q + location.hash);
 }
 const pair = () => ({ d: state.driver.id, v: state.vehicle.id });
@@ -337,19 +356,21 @@ function renderStats() {
     const k = c.key(t), dp = D.driverClasses[d.cls][k], vp = D.vehicleClasses[v.cls][k], l = level(d.cls, v.cls, k);
     const pl = p ? level(pd.cls, pv.cls, k) : null, delta = p ? pl - l : 0;
     const shownL = p ? pl : l, title = c.name + (c.id === 'speed' || c.id === 'handling' ? ' · ' + TERRAIN[t] : '');
+    const isSpeed = c.id === 'speed', coined = isSpeed && state.coins > 0;
     const el = h('div', {
       class: 'meter', tabindex: '0',
-      'aria-label': `${title}: level ${l} of 25, ${fmtRatio(ratio(k, l))}. ${STAT_INFO[k]}`,
+      'aria-label': `${title}: level ${l} of 25, ${fmtRatio(ratio(k, l))}${coined ? `, ${fmtRatio(topSpeed(d.cls, v.cls, k))} with ${coinWord(state.coins)}` : ''}. ${STAT_INFO[k]}`,
     },
       h('div', { class: 'meter-label' }, c.name, c.id === 'speed' || c.id === 'handling' ? h('small', { text: TERRAIN[t] }) : null),
       h('div', { class: 'meter-value' },
         delta ? h('span', { class: 'meter-delta ' + (delta > 0 ? 'up' : 'down'), text: signed(delta) }) : null,
-        h('span', { class: 'meter-ratio', text: fmtRatio(ratio(k, shownL)) }),
+        h('span', { class: 'meter-ratio' + (coined ? ' coined' : ''), text: fmtRatio(isSpeed ? topSpeed(pd.cls, pv.cls, k) : ratio(k, shownL)) }),
         h('span', { class: 'meter-level', text: shownL })),
       meterSegs(dp, vp, l, pl));
     tipOn(el, () => statTip(k, title));
     return el;
   }));
+  renderCoinSpeeds(pd, pv);
 
   const rank = comboRank(d.cls, v.cls), sc = Math.round(onlineScore()(d.cls, v.cls));
   $('#metaScore').replaceChildren(
@@ -375,6 +396,69 @@ function renderStats() {
   $('#allStats').replaceChildren(h('table', {},
     h('thead', {}, h('tr', {}, ['Stat', 'Driver', 'Vehicle', 'Level', 'Ratio'].map(t => h('th', { scope: 'col', text: t })))),
     h('tbody', {}, rows)));
+}
+
+/* ------------------------------------------------------------ coins held */
+function buildCoinDial() {
+  $('#coinPips').replaceChildren(...Array.from({ length: COIN_MAX }, () => h('i')));
+  const cell = (key, label, tip) => {
+    const el = h('div', { class: 'coin-cell', tabindex: '0', 'data-key': key }, h('b'), h('span', { text: label }));
+    tipOn(el, tip);
+    return el;
+  };
+  const gain = cell(null, 'Bonus', () => statTip('CoinSpeedRatio', 'Coin speed'));
+  gain.classList.add('coin-gain');
+  $('#coinSpeeds').replaceChildren(gain, ...SURFACES.map(([k, label]) => cell(k, label, () => statTip(k, D.labels[D.order.indexOf(k)]))));
+  $('#coinRange').addEventListener('input', e => setCoins(+e.target.value));
+  $('#coinDown').onclick = () => setCoins(state.coins - 1);
+  $('#coinUp').onclick = () => setCoins(state.coins + 1);
+  for (const ev of ['pointerenter', 'focusin', 'touchstart']) $('#coinDial').addEventListener(ev, prepCoins, { passive: true });
+  wireCoinPlot($('#coinChart'));
+  wireCoinPlot($('#raceChart'));
+}
+function renderCoinCount() {   // follows the count alone, so it stays live during a shuffle
+  const n = state.coins;
+  $('#coinCount').textContent = n;
+  $('#coinRange').value = n;
+  $('#coinCaption').textContent = 'Top speed at ' + coinWord(n);
+  $$('#coinPips i').forEach((p, i) => p.classList.toggle('on', i < n));
+  $('#coinDown').setAttribute('aria-disabled', String(n === 0));
+  $('#coinUp').setAttribute('aria-disabled', String(n === COIN_MAX));
+}
+function renderCoinSpeeds(d, v) {
+  $('.coin-gain b').textContent = `+${((coinScale(d.cls, v.cls) - 1) * 100).toFixed(1)}%`;
+  const mine = 'TopSpeed' + state.terrain;
+  $$('#coinSpeeds [data-key]').forEach(el => {
+    $('b', el).textContent = fmtRatio(topSpeed(d.cls, v.cls, el.dataset.key));
+    el.classList.toggle('on', el.dataset.key === mine);
+  });
+  $('#coinRange').setAttribute('aria-valuetext', `${coinWord(state.coins)}, ${TERRAIN[state.terrain]} speed ${fmtRatio(topSpeed(d.cls, v.cls, mine))}`);
+}
+let urlT, lastClink = 0;
+function setCoins(n) {
+  n = clamp(n, 0, COIN_MAX);
+  if (n === state.coins) return;
+  const up = n > state.coins;
+  state.coins = n;
+  renderCoinCount();
+  renderStats();
+  renderCoins();
+  renderRace();
+  coinFx(up);
+  clearTimeout(urlT);
+  urlT = setTimeout(syncUrl, 200);   // a drag steps fast, and Safari limits replaceState
+}
+const replay = (el, c) => { el.classList.remove(c); void el.offsetWidth; el.classList.add(c); };
+function coinFx(up) {
+  prepCoins();
+  replay($('#coinSprite'), 'turning');
+  replay($('#coinCount'), 'pop');
+  const now = performance.now();
+  if (up && now - lastClink > 90) { lastClink = now; sfx.play('coin', .5, 1 + state.coins * .02); }
+  if (state.coins === COIN_MAX && !calmMotion()) {
+    const r = $('#coinSprite').getBoundingClientRect();
+    coinBurst(r.left + r.width / 2, r.top, 42);
+  }
 }
 
 /* ------------------------------------------------------------ chooser */
@@ -476,46 +560,88 @@ function renderImpact() {
   $('#impactChart').replaceChildren(svg);
 }
 
-/* ------------------------------------------------------------ meta: coin curves */
-function renderCoins() {
-  const W = 660, H = 270, L = 40, R = 14, T = 12, B = 36;
-  const x = c => L + c / 20 * (W - L - R), y = p => T + (1 - p / 5) * (H - T - B);
-  const k = 'CoinSpeedRatio', [a, b] = ranges[k], me = ratio(k, level(state.driver.cls, state.vehicle.cls, k));
-  const series = [
-    { name: `Highest coin speed (${fmtRatio(ratio(k, b))})`, r: ratio(k, b), color: 'var(--s1)' },
-    { name: `Lowest coin speed (${fmtRatio(ratio(k, a))})`, r: ratio(k, a), color: 'var(--s2)' },
-    { name: `Your combo (${fmtRatio(me)})`, r: me, color: 'var(--ink)' },
-  ];
-  const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'Speed bonus by coins held, for the highest and lowest coin speed and your combo' });
-  for (const p of [0, 1, 2, 3, 4, 5]) {
-    svg.append(s('line', { class: p ? 'grid-line' : 'base-line', x1: L, x2: W - R, y1: y(p), y2: y(p) }));
-    svg.append(s('text', { class: 'tick', x: L - 8, y: y(p) + 4, 'text-anchor': 'end' }, `+${p}%`));
+/* ------------------------------------------------------------ coin plots
+   The curves in Meta and the speed race in Compare. The box stays in the page through redraws,
+   so a drag or keyboard focus keeps going as the count changes under it. */
+const PLOT = { W: 660, H: 284, L: 46, R: 26, T: 30, B: 36 };
+function coinPlot(box, { label, lo, hi, base, ticks, tick, read, series }) {
+  const { W, H, L, R, T, B } = PLOT, n = state.coins;
+  const x = c => L + c / COIN_MAX * (W - L - R), y = v => T + (hi - v) / (hi - lo) * (H - T - B);
+  const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': label });
+  for (const t of ticks) {
+    svg.append(s('line', { class: t === base ? 'base-line' : 'grid-line', x1: L, x2: W - R, y1: y(t), y2: y(t) }));
+    svg.append(s('text', { class: 'tick', x: L - 8, y: y(t) + 4, 'text-anchor': 'end' }, tick(t)));
   }
   for (const c of [0, 5, 10, 15, 20]) svg.append(s('text', { class: 'tick', x: x(c), y: H - 16, 'text-anchor': 'middle' }, c));
   svg.append(s('text', { class: 'axis-label', x: (L + W - R) / 2, y: H - 1, 'text-anchor': 'middle' }, 'Coins held'));
   for (const sr of series) {
     let d = '';
-    for (let c = 0; c <= 20; c += 0.25) d += `${c ? 'L' : 'M'}${x(c).toFixed(1)} ${y(coinBonus(sr.r, c)).toFixed(1)}`;
+    for (let c = 0; c <= COIN_MAX; c += 0.25) d += `${c ? 'L' : 'M'}${x(c).toFixed(1)} ${y(sr.at(c)).toFixed(1)}`;
     svg.append(s('path', { d, fill: 'none', stroke: sr.color, 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
   }
+  const ends = series.filter(sr => sr.tag).map(sr => ({ tag: sr.tag, py: y(sr.at(COIN_MAX)) })).sort((a, b) => a.py - b.py);
+  ends.forEach((e, i) => {   // identical lines end on the same spot, so their labels stack
+    if (i) e.py = Math.max(e.py, ends[i - 1].py + 14);
+    svg.append(s('text', { class: 'end-label', x: W - R + 7, y: e.py + 4 }, e.tag));
+  });
+  svg.append(s('line', { class: 'coin-mark', x1: x(n), x2: x(n), y1: T, y2: H - B }));
+  for (const sr of series) svg.append(s('circle', { cx: x(n), cy: y(sr.at(n)), r: 4.5, fill: sr.color, stroke: '#fff', 'stroke-width': 2 }));
+  svg.append(s('circle', { class: 'coin-flag', cx: x(n), cy: T - 15, r: 13 }));
+  svg.append(s('text', { class: 'flag-num', x: x(n), y: T - 11, 'text-anchor': 'middle' }, n));
   const cross = s('line', { class: 'base-line', x1: 0, x2: 0, y1: T, y2: H - B, visibility: 'hidden' });
   svg.append(cross);
-  const hit = s('rect', { class: 'hit', x: L, y: T, width: W - L - R, height: H - T - B, tabindex: '0', 'aria-label': 'Coin curve values' });
-  const onMove = e => {
-    const r = svg.getBoundingClientRect(), c = clamp(Math.round(((e.clientX - r.left) / r.width * W - L) / (W - L - R) * 20), 0, 20);
-    cross.setAttribute('x1', x(c)); cross.setAttribute('x2', x(c)); cross.setAttribute('visibility', 'visible');
-    showTip([h('strong', { text: c + (c === 1 ? ' coin' : ' coins') }), ...series.map(sr => h('div', { class: 'tt-row' },
-      h('i', { class: 'tt-key', style: `background:${sr.color === 'var(--ink)' ? '#fff' : sr.color}` }),
-      h('b', { text: `+${coinBonus(sr.r, c).toFixed(1)}%` }), ' ' + sr.name.split(' (')[0]))], e.clientX, e.clientY);
+  box.replaceChildren(svg);
+  box.setAttribute('aria-valuenow', n);
+  box.setAttribute('aria-valuetext', `${coinWord(n)}: ${series.map(sr => `${sr.short} ${read(sr.at(n))}`).join(', ')}`);
+  box.plot = {
+    hover(c, e) {
+      cross.setAttribute('x1', x(c)); cross.setAttribute('x2', x(c)); cross.setAttribute('visibility', 'visible');
+      showTip([h('strong', { text: coinWord(c) }), ...series.map(sr => h('div', { class: 'tt-row' },
+        h('i', { class: 'tt-key', style: `background:${sr.color === 'var(--ink)' ? '#fff' : sr.color}` }),
+        h('b', { text: read(sr.at(c)) }), ' ' + sr.short))], e.clientX, e.clientY);
+    },
+    leave() { cross.setAttribute('visibility', 'hidden'); hideTip(); },
   };
-  hit.addEventListener('pointermove', onMove);
-  hit.addEventListener('pointerleave', () => { cross.setAttribute('visibility', 'hidden'); hideTip(); });
-  svg.append(hit);
-  $('#coinChart').replaceChildren(svg);
+}
+function wireCoinPlot(box) {
+  const { W, L, R } = PLOT;
+  const at = e => {
+    const r = box.getBoundingClientRect();
+    return clamp(Math.round(((e.clientX - r.left) / r.width * W - L) / (W - L - R) * COIN_MAX), 0, COIN_MAX);
+  };
+  box.addEventListener('pointerdown', e => box.setPointerCapture(e.pointerId));
+  box.addEventListener('click', e => setCoins(at(e)));
+  box.addEventListener('pointermove', e => {
+    const c = at(e);
+    if (e.buttons) setCoins(c);
+    box.plot?.hover(c, e);
+  });
+  box.addEventListener('pointerleave', () => box.plot?.leave());
+  box.addEventListener('keydown', e => {
+    const by = { ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1, PageDown: -5, PageUp: 5 }[e.key];
+    const to = e.key === 'Home' ? 0 : e.key === 'End' ? COIN_MAX : by ? state.coins + by : null;
+    if (to === null) return;
+    e.preventDefault();
+    setCoins(to);
+  });
+}
+function renderCoins() {
+  const k = 'CoinSpeedRatio', [a, b] = ranges[k], me = ratio(k, level(state.driver.cls, state.vehicle.cls, k));
+  const series = [
+    { short: 'Highest coin speed', r: ratio(k, b), color: 'var(--s1)' },
+    { short: 'Lowest coin speed', r: ratio(k, a), color: 'var(--s2)' },
+    { short: 'Your combo', r: me, color: 'var(--ink)' },
+  ].map(sr => ({ ...sr, name: `${sr.short} (${fmtRatio(sr.r)})`, at: c => coinBonus(sr.r, c) }));
+  const read = v => `+${v.toFixed(1)}%`;
+  coinPlot($('#coinChart'), {
+    label: 'Speed bonus by coins held, for the highest and lowest coin speed and your combo',
+    lo: 0, hi: 5, base: 0, ticks: [0, 1, 2, 3, 4, 5], tick: p => `+${p}%`, read, series,
+  });
   $('#coinLegend').replaceChildren(...series.map(sr => h('li', {}, h('i', { class: 'key key-line', style: `background:${sr.color}` }), sr.name)));
+  const cols = [...new Set([1, 5, 10, 15, 20, state.coins || 1])].sort((x, y) => x - y), now = c => (c === state.coins ? 'now' : null);
   $('#coinTable').replaceChildren(h('table', {},
-    h('thead', {}, h('tr', {}, h('th', { scope: 'col', text: 'Coin speed' }), [1, 5, 10, 15, 20].map(c => h('th', { scope: 'col', text: c + (c === 1 ? ' coin' : ' coins') })))),
-    h('tbody', {}, series.map(sr => h('tr', {}, h('td', { text: sr.name.split(' (')[0] }), [1, 5, 10, 15, 20].map(c => h('td', { text: `+${coinBonus(sr.r, c).toFixed(1)}%` })))))));
+    h('thead', {}, h('tr', {}, h('th', { scope: 'col', text: 'Coins held' }), cols.map(c => h('th', { scope: 'col', class: now(c), text: c })))),
+    h('tbody', {}, series.map(sr => h('tr', {}, h('td', { text: sr.short }), cols.map(c => h('td', { class: now(c), text: read(sr.at(c)) })))))));
 }
 
 /* ------------------------------------------------------------ meta: World Open */
@@ -742,8 +868,9 @@ function removeCompare(p) {
   state.compare = state.compare.filter(c => !same(c, p));
   persist(); renderCompare(); syncButtons();
 }
+const compareList = () => [...state.compare].sort((a, b) => a.slot - b.slot).map(c => ({ ...c, ...resolve(c) }));
 function renderCompare() {
-  const box = $('#compareBody'), list = [...state.compare].sort((a, b) => a.slot - b.slot).map(c => ({ ...c, ...resolve(c) })), t = state.terrain;
+  const box = $('#compareBody'), levels = $('#compareLevels'), list = compareList(), t = state.terrain;
   const empty = 3 - list.length;
   const cols = h('div', { class: 'compare-cols' },
     list.map(c => h('article', { class: 'panel cmp-card' },
@@ -756,10 +883,12 @@ function renderCompare() {
       ? h('div', {}, h('p', { text: 'Use the current combo from the garage.' }), h('button', { class: 'btn btn-primary btn-sm', type: 'button', onclick: () => addCompare(pair()) }, '+ Add ' + state.driver.name + ' + ' + state.vehicle.name))
       : h('span', { text: 'Empty slot' }))));
   box.replaceChildren(cols);
+  levels.replaceChildren();
+  renderRace();
   if (!list.length) return;
   const keys = [...CORE.map(c => ({ k: c.key(t), name: c.name + (c.id === 'speed' || c.id === 'handling' ? ' · ' + TERRAIN[t] : ''), pick: c.id !== 'weight' })), { k: 'InvincibleRatio', name: 'Invincibility', pick: false }];
   const legend = h('ul', { class: 'legend legend-inline', 'aria-label': 'Combos' }, list.map(c => h('li', {}, h('i', { class: 'key', style: `background:${SLOT[c.slot]}` }), `${'ABC'[c.slot]}: ${c.d.name} + ${c.v.name}`)));
-  box.append(h('article', { class: 'panel cmp-chart' },
+  levels.append(h('article', { class: 'panel cmp-chart' },
     h('h3', { class: 'chart-title', text: 'Levels side by side' }),
     h('p', { class: 'chart-sub', text: 'Bars show level out of 25. Hover a stat for what it does.' }),
     legend,
@@ -777,10 +906,49 @@ function renderCompare() {
     const ls = list.map(c => level(c.d.cls, c.v.cls, k)), best = Math.max(...ls);
     return h('tr', {}, h('td', { text: D.labels[i] }), ls.map(l => h('td', { class: list.length > 1 && l === best && ls.some(x => x !== best) ? 'best' : '', text: l })));
   });
-  box.append(h('details', { class: 'panel cmp-table' }, h('summary', { text: 'All 19 stats as a table' }),
+  levels.append(h('details', { class: 'panel cmp-table' }, h('summary', { text: 'All 19 stats as a table' }),
     h('div', { class: 'table-wrap' }, h('table', {},
       h('thead', {}, h('tr', {}, h('th', { scope: 'col', text: 'Stat' }), list.map(c => h('th', { scope: 'col', text: 'ABC'[c.slot] })))),
       h('tbody', {}, rows)))));
+}
+/* Who's fastest at each count, as runs like "A at 0–5, B at 6–20". */
+function coinLeaders(list, k) {
+  const runs = [];
+  for (let c = 0; c <= COIN_MAX; c++) {
+    const vals = list.map(x => topSpeed(x.d.cls, x.v.cls, k, c)), top = Math.max(...vals);
+    const who = list.filter((_, i) => top - vals[i] < 1e-9).map(x => 'ABC'[x.slot]).join(' + '), last = runs.at(-1);
+    if (last?.who === who) last.to = c; else runs.push({ who, from: c, to: c });
+  }
+  return runs.map(r => `${r.who} at ${r.from === r.to ? r.from : `${r.from}–${r.to}`}`).join(', ');
+}
+function renderRace() {
+  const card = $('#raceCard'), list = compareList(), t = state.terrain, k = 'TopSpeed' + t;
+  card.hidden = !list.length;
+  if (!list.length) return;
+  const series = list.map(c => ({
+    short: 'ABC'[c.slot], tag: 'ABC'[c.slot], color: SLOT[c.slot], at: n => topSpeed(c.d.cls, c.v.cls, k, n),
+  }));
+  const ends = series.flatMap(sr => [sr.at(0), sr.at(COIN_MAX)]), min = Math.min(...ends) * 100, max = Math.max(...ends) * 100;
+  const step = max - min > 6 ? 2 : 1, lo = Math.floor(min / step) * step, hi = Math.ceil(max / step) * step;
+  const ticks = [];
+  for (let v = lo; v <= hi; v += step) ticks.push(v / 100);
+  $('#raceTitle').textContent = `${TERRAIN[t][0].toUpperCase() + TERRAIN[t].slice(1)} speed by coins`;
+  coinPlot($('#raceChart'), {
+    label: `${TERRAIN[t]} speed by coins held, for each combo`,
+    lo: lo / 100, hi: hi / 100, base: 1, ticks, tick: v => '×' + v.toFixed(2), read: fmtRatio, series,
+  });
+  $('#raceLegend').replaceChildren(...list.map(c => h('li', {}, h('i', { class: 'key key-line', style: `background:${SLOT[c.slot]}` }), `${'ABC'[c.slot]}: ${c.d.name} + ${c.v.name}`)));
+  const lead = $('#raceLead');
+  lead.hidden = list.length < 2;
+  if (!lead.hidden) lead.textContent = `Fastest: ${coinLeaders(list, k)} coins`;
+  const cols = [...new Set([0, 10, 20, state.coins])].sort((a, b) => a - b);
+  const cell = (sr, c) => {
+    const here = series.map(x => x.at(c)), top = Math.max(...here), wins = list.length > 1 && top - sr.at(c) < 1e-9 && here.some(v => top - v > 1e-9);
+    return h('td', { class: [c === state.coins && 'now', wins && 'best'].filter(Boolean).join(' ') || null, text: fmtRatio(sr.at(c)) });
+  };
+  $('#raceTable').replaceChildren(h('table', {},
+    h('thead', {}, h('tr', {}, h('th', { scope: 'col', text: 'Coins held' }), cols.map(c => h('th', { scope: 'col', class: c === state.coins ? 'now' : null, text: c })))),
+    h('tbody', {}, series.map(sr => h('tr', {}, h('td', { text: sr.short }), cols.map(c => cell(sr, c)))))));
 }
 function renderSaved() {
   const box = $('#savedBody');
@@ -858,12 +1026,16 @@ const sfx = {
 };
 
 let coinImg;
-function prepSpin() {
+function prepCoins() {
   sfx.load();
   sfx.ctx?.resume();
+  if (coinImg) return;
+  coinImg = new Image(); coinImg.src = 'img/coin.webp';
+}
+function prepSpin() {
+  prepCoins();
   if (spin.ready) return;
   spin.ready = true;
-  coinImg = new Image(); coinImg.src = 'img/coin.webp';
   for (const c of D.characters) new Image().src = dIcon(c.id);
   for (const v of D.vehicles) new Image().src = vCard(v.id);
 }
@@ -962,6 +1134,7 @@ function driverMeters(d) {   // row 1 has landed: show what the driver alone bri
 function spinChrome(on) {
   $('#stage').classList.toggle('spinning', on);
   $('.stats-panel').classList.toggle('spinning', on);
+  $('#coinDial').classList.toggle('spinning', on);
   $('#shuffle').textContent = on ? 'Skip' : 'Shuffle';
   for (const id of ['#share', '#addCompare', '#save', '#prevVehicle', '#nextVehicle']) $(id).disabled = on;
 }
@@ -1076,6 +1249,7 @@ function arrow(btn, delta) {
   step(delta);
 }
 function wire() {
+  buildCoinDial();
   $('#terrainSeg').addEventListener('click', e => { const b = e.target.closest('[data-terrain]'); if (b) setTerrain(b.dataset.terrain); });
   $('#finderTerrainSeg').addEventListener('click', e => { const b = e.target.closest('[data-terrain]'); if (b) setFinderTerrain(b.dataset.terrain); });
   $('#prevVehicle').onclick = e => arrow(e.currentTarget, -1);
@@ -1151,7 +1325,9 @@ async function init() {
   const q = new URLSearchParams(location.search);
   state.driver = drivers.get(q.get('d')) || drivers.get('Driver_Basabasa_00');
   state.vehicle = vehicles.get(q.get('v')) || vehicles.get('Vehicle_Hvc_00');
+  state.coins = clamp(parseInt(q.get('c'), 10) || 0, 0, COIN_MAX);
   wire();
+  renderCoinCount();
   renderFinderControls();
   renderOpen();
   renderBuilds();

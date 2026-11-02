@@ -126,7 +126,7 @@ code { font: 800 .86em/1 ui-monospace, "JetBrains Mono", monospace; background: 
   display: grid; grid-template-columns: minmax(0, 1fr) 410px; gap: 20px; align-items: stretch;
 }
 .stage {
-  position: relative; overflow: hidden; isolation: isolate;
+  position: relative; overflow: hidden; overflow: clip; isolation: isolate;   /* clip: the glow below would otherwise leave it scrollable */
   min-height: 640px; border-radius: 30px;
   background:
     radial-gradient(60% 46% at 62% 58%, rgba(255, 214, 92, .30) 0%, rgba(255, 214, 92, 0) 70%),
@@ -299,6 +299,8 @@ code { font: 800 .86em/1 ui-monospace, "JetBrains Mono", monospace; background: 
 .meter-delta.up { background: #dcf3e8; color: #0b6b43; }
 .meter-delta.down { background: #fde3dc; color: #a3311a; }
 .meter-ratio { font: 800 12px/1 var(--ui); color: var(--muted); font-variant-numeric: tabular-nums; min-width: 52px; text-align: right; }
+.meter-ratio.coined { color: #8a6100; font-weight: 900; }
+.meter-ratio.coined::before { content: ""; display: inline-block; width: 9px; height: 9px; margin-right: 4px; border-radius: 50%; background: var(--yellow); box-shadow: inset 0 0 0 1px #d79d00; }
 .segs { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(25, 1fr); gap: 2px; height: 12px; position: relative; }
 .segs i { border-radius: 3px; background: var(--track); transition: background .25s ease; }
 .segs i.d { background: var(--s1); }
@@ -338,6 +340,59 @@ td.neg { color: #a3311a; }
 td.pos { color: #0b6b43; }
 td.best { font-weight: 900; }
 td.best::after { content: " ★"; color: #c58f00; }
+
+/* ---------------------------------------------------------------- coins held */
+.coin-dial {
+  grid-column: 1 / -1; display: grid; grid-template-columns: auto minmax(200px, 1fr) auto; align-items: center; gap: 12px 26px;
+  padding: 12px 18px 12px 14px; border-radius: var(--radius); color: #fff;
+  background:
+    radial-gradient(420px 170px at 56px 50%, rgba(255, 198, 26, .24) 0%, rgba(255, 198, 26, 0) 70%),
+    linear-gradient(100deg, #2c3768 0%, #1a2040 46%, #111527 100%);
+  box-shadow: var(--shadow), inset 0 0 0 1px rgba(255,255,255,.09);
+}
+.coin-dial :focus-visible { outline-color: var(--yellow); }
+.coin-dial .eyebrow { color: rgba(255,255,255,.66); font-size: 10.5px; }
+.coin-read { display: flex; align-items: center; gap: 10px; }
+.coin-sprite { flex: none; width: 60px; height: 60px; background: url(img/coin-sm.webp) 0 0 / 600% 400% no-repeat; }
+.coin-sprite.turning { animation: coin-col .16s steps(6) 4, coin-row .64s steps(4); }
+@keyframes coin-col { to { background-position-x: 120%; } }
+@keyframes coin-row { to { background-position-y: 133.33%; } }
+.coin-count { margin: 5px 0 0; font-size: 36px; line-height: 1; color: var(--yellow); min-width: 84px; white-space: nowrap; }
+.coin-count span { display: inline-block; }
+.coin-count span.pop { animation: coin-pop .26s cubic-bezier(.2, 1.4, .4, 1); }
+@keyframes coin-pop { from { transform: translateY(3px) scale(1.22); } }
+.coin-count small { margin-left: 3px; font: 900 15px/1 var(--ui); color: rgba(255,255,255,.55); }
+
+.coin-control { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.coin-dial .stage-arrow { flex: none; width: 38px; height: 38px; background: rgba(255,255,255,.12); color: #fff; }
+.coin-dial .stage-arrow:hover { background: var(--yellow); color: var(--ink); }
+.coin-dial .stage-arrow[aria-disabled="true"] { opacity: .4; cursor: default; background: rgba(255,255,255,.12); color: #fff; transform: none; }
+.coin-track { position: relative; flex: 1; min-width: 0; height: 38px; display: grid; align-items: center; }
+.coin-pips { display: grid; grid-template-columns: repeat(20, 1fr); gap: 3px; height: 14px; }
+.coin-pips i { border-radius: 3px; background: rgba(255,255,255,.14); transition: background .15s ease, box-shadow .15s ease; }
+.coin-pips i.on { background: linear-gradient(180deg, #ffe17a, var(--yellow) 60%, #e9a800); box-shadow: 0 0 9px rgba(255, 198, 26, .45); }
+.coin-track input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; background: transparent; cursor: pointer; appearance: none; -webkit-appearance: none; }
+.coin-track input::-webkit-slider-runnable-track { height: 100%; background: transparent; }
+.coin-track input::-moz-range-track { height: 100%; background: transparent; }
+.coin-track input::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 26px; height: 26px; margin-top: 6px; border-radius: 50%; border: 3px solid #fff;
+  background: radial-gradient(circle at 36% 30%, #fff3c4, var(--yellow) 52%, #d79d00); box-shadow: 0 3px 8px rgba(0,0,0,.45);
+}
+.coin-track input::-moz-range-thumb {
+  box-sizing: border-box; width: 26px; height: 26px; border-radius: 50%; border: 3px solid #fff;
+  background: radial-gradient(circle at 36% 30%, #fff3c4, var(--yellow) 52%, #d79d00); box-shadow: 0 3px 8px rgba(0,0,0,.45);
+}
+
+.coin-out { display: grid; gap: 6px; transition: opacity .25s ease; }
+.coin-dial.spinning .coin-out { opacity: .3; }
+.coin-speeds { display: grid; grid-template-columns: repeat(8, 78px); gap: 4px; }
+.coin-cell { cursor: help; display: grid; gap: 4px; padding: 7px 8px 6px; border-radius: 10px; background: rgba(255,255,255,.08); transition: background .15s ease; }
+.coin-cell b { font: 900 14px/1 var(--ui); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.coin-cell span { font: 900 9.5px/1 var(--ui); letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; color: rgba(255,255,255,.66); }
+.coin-cell.on { background: #fff; color: var(--ink); }
+.coin-cell.on span { color: var(--ink-2); }
+.coin-gain { background: var(--yellow); color: var(--ink); }
+.coin-gain span { color: #5b4708; }
 
 /* ---------------------------------------------------------------- chooser */
 .chooser { width: var(--wrap); margin: 20px auto 0; }
@@ -436,6 +491,14 @@ td.best::after { content: " ★"; color: #c58f00; }
 .coin-plot text { font-family: var(--ui); font-weight: 800; fill: var(--ink-2); }
 .coin-plot .tick { font-size: 11px; fill: var(--muted); font-variant-numeric: tabular-nums; }
 .coin-plot .axis-label { font-size: 12px; font-weight: 900; }
+.coin-plot { cursor: ew-resize; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.coin-plot .end-label { font-size: 12px; font-weight: 900; fill: var(--ink); }
+.coin-plot .flag-num { font-size: 12px; font-weight: 900; fill: var(--ink); }
+.coin-mark { stroke: var(--ink); stroke-width: 1; stroke-dasharray: 3 4; }
+.coin-flag { fill: var(--yellow); stroke: var(--ink); stroke-width: 2; }
+.coin-lead { margin: 0 0 4px; font: 900 13px/1.4 var(--ui); color: var(--ink); }
+th.now, td.now { background: #fff6d6; }
+thead th.now { color: var(--ink); }
 .legend-stack { flex-direction: column; align-items: flex-start; margin-bottom: 12px; }
 .key-line { height: 3px; width: 18px; border-radius: 2px; }
 .tt-sep { margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,.18); }
@@ -590,9 +653,13 @@ dialog::backdrop { background: rgba(20,24,38,.45); backdrop-filter: blur(4px); }
   .stage { min-height: 560px; }
   .builds { grid-template-columns: repeat(2, 1fr); }
   .results { grid-template-columns: repeat(2, 1fr); }
+  .coin-dial { grid-template-columns: auto minmax(0, 1fr); }
+  .coin-out { grid-column: 1 / -1; }
+  .coin-card { grid-template-columns: minmax(0, 1fr); }
+  .coin-speeds { grid-template-columns: repeat(8, minmax(0, 1fr)); }
 }
 @media (max-width: 960px) {
-  .meta-grid, .takeaways, .footer-grid, .coin-card { grid-template-columns: minmax(0, 1fr); }
+  .meta-grid, .takeaways, .footer-grid { grid-template-columns: minmax(0, 1fr); }
   .glossary { grid-template-columns: repeat(2, 1fr); }
   .finder-grid { grid-template-columns: minmax(0, 1fr); }
   .weights { position: static; grid-template-columns: repeat(2, 1fr); }
@@ -632,6 +699,10 @@ dialog::backdrop { background: rgba(20,24,38,.45); backdrop-filter: blur(4px); }
   .cmp-row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
   .open-bar { grid-template-columns: 122px 1fr 30px; }
   .waffle { grid-template-columns: repeat(10, 1fr); }
+  .coin-dial { grid-template-columns: minmax(0, 1fr); }
+  .coin-speeds { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .cmp-coins td.best::after { content: none; }
+  .cmp-coins th, .cmp-coins td { padding-inline: 3px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }

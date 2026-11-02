@@ -6,13 +6,19 @@ A buildless Mario Kart World combo picker built around path-traced renders of al
 python -m http.server 8080 --directory dist
 ```
 
-It covers all 50 characters, their 153 outfits and the 40 vehicles: live stat meters by terrain, a searchable picker grouped by shared stats, a meta breakdown, a weighted finder with a combo map, three-way compare, saved combos and shareable links. Saves stay in the current browser.
+It covers all 50 characters, their 153 outfits and the 40 vehicles: live stat meters by terrain, a searchable picker grouped by shared stats, a coin counter that shows top speed at any coin count, a meta breakdown, a weighted finder with a combo map, three-way compare, saved combos and shareable links. Saves stay in the current browser.
 
 ## Shuffle
 
 Three rows spin in the stage and stop in turn: driver, then kart or bike, then a vehicle of that type. The third row stays locked until the second lands. Every vehicle is equally likely, so the second row lands on kart or bike 23:17, matching how many of each there are. The meters roll during the spin, show the driver's points when row 1 lands, and add the vehicle at the end. The coin burst grows with the Online meta rank.
 
 Press Shuffle again to skip. Picking a driver or vehicle by hand cancels the spin. With reduced motion on, it picks instantly. Sound uses the game's roulette, stop and coin effects, with a mute button remembered in the browser.
+
+## Coins
+
+The band under the garage sets how many coins you're holding, from 0 to 20, with the slider, the − and + buttons, or by clicking, dragging or arrow-keying either coin chart. It shows top speed on all seven surfaces and follows hover previews. The Speed meter, the coin chart in Meta and the speed chart in Compare use the same count, and links carry it as `c` (`?d=…&v=…&c=7`, left out at 0).
+
+Speeds are multipliers, where ×1.000 is neutral, because the game has no speed unit the site could quote. Levels, the Online meta score and the finder don't change with coins, since they rank stats rather than a moment in a race.
 
 ## Layout
 
@@ -21,7 +27,7 @@ Press Shuffle again to skip. Picking a driver or vehicle by hand cancels the spi
 
 These stay in the local project and aren't in this repo: the game dump, the original 3840×2560 vehicle renders (`outputs/vehicle-renders-4k/`), the 512×512 coin frames (`outputs/coin-spin/`), the build and render scripts (`tools/`) and the decompiled code (`tools/work/re/`). Paths below refer to that local project.
 
-Rebuild images and data with `tools/.venv/bin/python -I tools/py/build_site_assets.py` (add `vehicles`, `drivers`, `coin` or `sounds` to limit it). The coin frames come from `tools/render/coin_sheet.py`, which smooths the game's low-poly mesh. Stat maths and copy live in `dist/app.js`. Fonts are the game's own, subset to WOFF2.
+Rebuild images and data with `tools/.venv/bin/python -I tools/py/build_site_assets.py` (add `vehicles`, `drivers`, `coin` or `sounds` to limit it). The coin frames come from `tools/render/coin_sheet.py`, which smooths the game's low-poly mesh. `coin` writes two sheets: `coin.webp` for the shuffle burst, loaded on demand, and the much smaller `coin-sm.webp` for the coin counter. Stat maths and copy live in `dist/app.js`. Fonts are the game's own, subset to WOFF2.
 
 ## Search appearance
 
@@ -64,9 +70,12 @@ Coin curve, with `c = clamp(coins × 0.05, 0, 1)` and `s = clamp(CoinSpeedRatio 
 bonus = ease_in + s × (ease_out − ease_in)
 ease_out = sqrt(1 − (1 − c)²), ease_in = 1 − sqrt(1 − c²)
 speed scale = base + base × 0.05 × bonus
+top speed ∝ surface ratio × speed scale
 ```
 
 Both curves reach 1 at 20 coins, so every combo gets the same maximum. Coin speed only changes how soon you get there.
+
+The top speed line is what the site shows. `0x654360` builds the speed cap at `+0x21c` as surface ratio × speed scale × race class ÷ a table value (`0x2d6bf80`, 1.57 in the normal gear), and `0x65a220` builds the speed scale. Class and table value are the same for every combo, so the two ratios decide it. `base` is 1.0 in normal driving, and gliding swaps the surface ratio for the glide ratio without touching the speed scale, so coins count there too.
 
 The speed scale applies on every surface, including rails and walls. Each frame `0x65b660` picks the surface stat, with rail (`+0x5c` bit 14) and wall (bit 17) ahead of the ground checks, then `0x65b660` and `0x654360` combine it with the inverse of the speed scale into the speed cap. Dirt, rail and wall are ×1.0 on every combo, so the speed scale is the only thing separating combos there: they all match at 0 coins, higher coin speed leads from 1 to 19 coins, and they match again at 20. At 1 coin the bonus runs from +0.2% to +1.4%. The gap peaks at 2.7 points at 10 coins. Rails also multiply the target speed by `RailSlideSpeedRate` (`+0xb8`), which is 1.0 from the constructor at `0xecdca0` and isn't set in any game file. It doesn't vary by combo.
 
