@@ -48,7 +48,7 @@ The hover text comes from tracing each stat through the game's code. Functions a
 
 | Stat | Block offset | What the code does | Where |
 |---|---|---|---|
-| Surface speed | `+0x98` | Road, off-road or water ratio picked each frame; its inverse scales the speed value | `0x65b660` |
+| Surface speed | `+0x98` | Road, off-road, dirt, water, rail or wall ratio picked each frame; its inverse scales the speed value | `0x65b660` |
 | Glide speed | `+0x9c` | Used instead of surface speed in the gliding state | `0x65b660` |
 | Acceleration | `+0xa0` | Multiplies the per-frame growth of the racer's speed value | `0x65b660` |
 | Surface handling | `+0xac` | Clamped to 0–5, feeds the turn rate | `0x65b660` |
@@ -68,9 +68,11 @@ speed scale = base + base × 0.05 × bonus
 
 Both curves reach 1 at 20 coins, so every combo gets the same maximum. Coin speed only changes how soon you get there.
 
+The speed scale applies on every surface, including rails and walls. Each frame `0x65b660` picks the surface stat, with rail (`+0x5c` bit 14) and wall (bit 17) ahead of the ground checks, then `0x65b660` and `0x654360` combine it with the inverse of the speed scale into the speed cap. Dirt, rail and wall are ×1.0 on every combo, so the speed scale is the only thing separating combos there: they all match at 0 coins, higher coin speed leads from 1 to 19 coins, and they match again at 20. At 1 coin the bonus runs from +0.2% to +1.4%. The gap peaks at 2.7 points at 10 coins. Rails also multiply the target speed by `RailSlideSpeedRate` (`+0xb8`), which is 1.0 from the constructor at `0xecdca0` and isn't set in any game file. It doesn't vary by combo.
+
 Invincible base frames are in `Gyml/VehicleTrickSetGParam/TrickSetBase`: 150–200 for spin, crash, big crash and squash, 70–100 for lightning. Tying `0x66e2b0`'s timer to those fields rests on the parameter names and the `InvincibleRatio` name, not on a traced getter.
 
-Not fully traced: the exact state that gates handling grip, what the second value in the Weight calculation is (the code at `0x2008b0` reads it from `+0xe8`), and tire grip, whose readers weren't found. Tire grip, dirt, rail and wall speed, and glide and dirt handling are the same for every combo, so they don't affect any comparison.
+Not fully traced: the exact state that gates handling grip, what the second value in the Weight calculation is (the code at `0x2008b0` reads it from `+0xe8`), the check that gates the coin bonus (`+0x40 == 5` in `0x656360`), and tire grip, whose readers weren't found. Tire grip and glide and dirt handling are the same for every combo, so they don't affect any comparison.
 
 ## Meta
 

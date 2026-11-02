@@ -38,15 +38,17 @@ const CORE = [
   { id: 'weight', name: 'Weight', short: 'Wgt', key: () => 'Weight' },
 ];
 const SAME = ' Every combo has the same value, so it never separates two builds.';
+const SAME_BASE = ' This value is the same on every combo, so coins are what separate builds here. Everyone matches at 0 and 20 coins. In between, higher coin speed goes faster.';
+const COIN_ONLY = ['TopSpeedDirt', 'TopSpeedRailSlide', 'TopSpeedWallRide'];
 /* Each description comes from tracing the stat through the game's code (see the README). */
 const STAT_INFO = {
   TopSpeedTarmac: 'Scales your speed on road. The game checks the ground under you every frame and switches between road, off-road and water speed to match.',
   TopSpeedGravel: 'Scales your speed on ground that isn\'t road, dirt or water. The game\'s name for this one is Gravel.',
   TopSpeedWater: 'Scales your speed on water.',
   TopSpeedGlide: 'Replaces your surface speed while you\'re gliding.',
-  TopSpeedDirt: 'Your speed on dirt.' + SAME,
-  TopSpeedRailSlide: 'Your speed while grinding a rail.' + SAME,
-  TopSpeedWallRide: 'Your speed while riding a wall.' + SAME,
+  TopSpeedDirt: 'Your speed on dirt.' + SAME_BASE,
+  TopSpeedRailSlide: 'Your speed while grinding a rail.' + SAME_BASE,
+  TopSpeedWallRide: 'Your speed while riding a wall.' + SAME_BASE,
   Acceleration: 'Multiplies how fast your speed builds up, every frame. No other stat swings as much, and it\'s what gets you back up to speed after a hit.',
   DriftDashTime: 'Multiplies how long a drift boost lasts: boost frames = base frames × this value. It changes the length of the boost, not its strength.',
   HandlingTarmac: 'Multiplies how sharply you turn on road.',
@@ -57,7 +59,7 @@ const STAT_INFO = {
   HandlingGrip: 'A second turn-rate multiplier on the game\'s normal steering path, separate from surface handling.',
   TireGrip: 'A grip value named in the stat table.' + SAME,
   Weight: 'Heavier combos take a smaller kick in a collision. The game scales that kick by 1 ÷ your weight, between ×0.5 and ×2.',
-  CoinSpeedRatio: 'Decides how early your coins pay off. Everyone gets the same speed bonus at 20 coins. A high value gives you most of it from your first few coins, and a low value holds it back until you\'re near 20.',
+  CoinSpeedRatio: 'Decides how early your coins pay off. Everyone gets the same speed bonus at 20 coins. A high value gives you most of it from your first few coins, and a low value holds it back until you\'re near 20. It\'s the only speed difference between combos on dirt, rails and walls.',
   InvincibleRatio: 'Multiplies how long you stay invincible after a hit. The base is 150–200 frames after a spin, crash or squash, and 70–100 after lightning.',
 };
 
@@ -142,6 +144,10 @@ function statTip(k, title, d = state.driver, v = state.vehicle) {
   if (k === 'CoinSpeedRatio') {
     const r = ratio(k, l);
     nodes.push(h('div', { class: 'tt-sub', text: `Bonus at 5 / 10 / 20 coins: +${coinBonus(r, 5).toFixed(1)}% / +${coinBonus(r, 10).toFixed(1)}% / +5.0%` }));
+  }
+  if (COIN_ONLY.includes(k)) {
+    const r = ratio('CoinSpeedRatio', level(d.cls, v.cls, 'CoinSpeedRatio'));
+    nodes.push(h('div', { class: 'tt-sub', text: `Coin bonus at 1 / 5 / 10 coins: +${coinBonus(r, 1).toFixed(1)}% / +${coinBonus(r, 5).toFixed(1)}% / +${coinBonus(r, 10).toFixed(1)}%` }));
   }
   return nodes;
 }
