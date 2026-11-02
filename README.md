@@ -1,92 +1,76 @@
-# Combo Garage
+<div align="center">
 
-A buildless Mario Kart World combo picker built around path-traced renders of all 40 vehicles. Serve `dist/` with any static HTTP server and open it:
+<img src="dist/favicon.png" alt="" width="64" height="64">
 
-```
-python -m http.server 8080 --directory dist
-```
+<h1>Combo Garage</h1>
 
-It covers all 50 characters, their 153 outfits and the 40 vehicles: live stat meters by terrain, a searchable picker grouped by shared stats, a coin counter that shows top speed at any coin count, a meta breakdown, a weighted finder with a combo map, three-way compare, saved combos and shareable links. Saves stay in the current browser.
+<p><strong>Find your next main.</strong><br>
+The Mario Kart World combo builder for the way you race.</p>
 
-## Shuffle
+<p>
+  <a href="https://combogarage.pages.dev/"><strong>Open the garage →</strong></a>
+  &nbsp; · &nbsp;
+  <a href="docs/how-it-works.md">How it works</a>
+  &nbsp; · &nbsp;
+  <a href="#run-locally">Run locally</a>
+</p>
 
-Three rows spin in the stage and stop in turn: driver, then kart or bike, then a vehicle of that type. The third row stays locked until the second lands. Every vehicle is equally likely, so the second row lands on kart or bike 23:17, matching how many of each there are. The meters roll during the spin, show the driver's points when row 1 lands, and add the vehicle at the end. The coin burst grows with the Online meta rank.
+<p><strong>50 drivers</strong> &nbsp; / &nbsp; <strong>153 looks</strong> &nbsp; / &nbsp; <strong>40 vehicles</strong> &nbsp; / &nbsp; <strong>480 distinct stat builds</strong></p>
 
-Press Shuffle again to skip. Picking a driver or vehicle by hand cancels the spin. With reduced motion on, it picks instantly. Sound uses the game's roulette, stop and coin effects, with a mute button remembered in the browser.
+</div>
 
-## Coins
+[![Combo Garage showing Swoop on the R.O.B. H.O.G., live stat meters and top speeds at 10 coins.](docs/assets/garage.webp)](https://combogarage.pages.dev/?d=Driver_Basabasa_00&v=Vehicle_Hvc_00&c=10)
 
-The band under the garage sets how many coins you're holding, from 0 to 20, with the slider, the − and + buttons, or by clicking, dragging or arrow-keying either coin chart. It shows top speed on all seven surfaces and follows hover previews. The Speed meter, the coin chart in Meta and the speed chart in Compare use the same count, and links carry it as `c` (`?d=…&v=…&c=7`, left out at 0).
+Pick your favourite driver. Find their perfect ride. See exactly what changes before you hit the track.
 
-Speeds are multipliers, where ×1.000 is neutral, because the game has no speed unit the site could quote. Levels, the Online meta score and the finder don't change with coins, since they rank stats rather than a moment in a race.
+Combo Garage puts the whole roster in a visual workshop, with path-traced vehicle renders, live stats and the tools to turn “this looks fun” into your next go-to build. **Open it in your browser and start building. No account required.**
 
-## Layout
+## Your driver. Your ride. Your edge.
 
-- `dist/`: the site (`index.html`, `styles.css`, `app.js`, `data.json`, `fonts/`, `img/`).
-- `source/stat-export.json`: the stat export `dist/data.json` is built from.
+| In the garage | What you can do |
+| :--- | :--- |
+| **Build your combo** | Browse every driver, outfit, kart and bike. Hover to preview the stat changes, and find other characters or vehicles with the same stats. |
+| **Read the whole picture** | Switch between road, off-road and water. See what your driver contributes, what your vehicle adds or takes away, and the multipliers behind all 19 stats. |
+| **Make every coin count** | Move from 0 to 20 coins and watch top speed change across seven surfaces, including gliding, rails and walls. |
+| **Find your fit** | Start with Online meta, Time trial or Balanced weights, then tune the stats you care about. Keep your favourite driver or vehicle locked in. |
+| **Settle the shortlist** | Compare up to three combos side by side, including how their top speeds change as you collect coins. |
+| **Keep the good ones** | Save favourites in your browser. Copy a link to share your driver, outfit, vehicle and coin count. |
 
-These stay in the local project and aren't in this repo: the game dump, the original 3840×2560 vehicle renders (`outputs/vehicle-renders-4k/`), the 512×512 coin frames (`outputs/coin-spin/`), the build and render scripts (`tools/`) and the decompiled code (`tools/work/re/`). Paths below refer to that local project.
+## Build for the way you race
 
-Rebuild images and data with `tools/.venv/bin/python -I tools/py/build_site_assets.py` (add `vehicles`, `drivers`, `coin` or `sounds` to limit it). The coin frames come from `tools/render/coin_sheet.py`, which smooths the game's low-poly mesh. `coin` writes two sheets: `coin.webp` for the shuffle burst, loaded on demand, and the much smaller `coin-sm.webp` for the coin counter. Stat maths and copy live in `dist/app.js`. Fonts are the game's own, subset to WOFF2.
+More acceleration after a hit? Longer mini-turbos? A little more straight-line speed? **Tell the Finder what matters to you.** It ranks the stat builds against your priorities and groups identical options, so you can choose the look you like.
 
-## Search appearance
+[![The Finder with adjustable stat weights and six ranked builds, including Swoop, Spike, Toadette and Baby Luigi.](docs/assets/finder.webp)](https://combogarage.pages.dev/#finder)
 
-The title, description, canonical URL, Open Graph metadata and `WebSite` structured data live in `dist/index.html`. The preferred site name is **Combo Garage**. If the public domain changes, update the URLs there and in `dist/robots.txt` and `dist/sitemap.xml` together.
+The interactive **combo map** lets you explore the trade-offs between any two core stats. The **Meta** section brings together stat ranges, coin curves, suggested builds and the driver picks from the July 2026 Mario Kart World Open.
 
-The crawlable favicons use the site's chequered flag. Their editable source is `source/favicon.svg`; regenerate the committed icons with ImageMagick and librsvg:
+Stats come from the game's own tables. Finder scores reflect the weights you choose; they aren't predicted lap times. [See the maths and sources →](docs/how-it-works.md)
+
+## A garage worth browsing
+
+Every one of the **40 vehicles** has been path-traced in Blender Cycles from the game's highest-detail models and textures, with original renders at **3840 × 2560**. Character art, outfits and the game's own typefaces bring the rest of the garage to life.
+
+Feeling lucky? Hit **Shuffle**. Three reels land on a driver, a kart or bike, and your ride, with roulette sounds and a coin burst to finish. Mute is one tap away, and reduced-motion settings are respected.
+
+<p align="center">
+  <a href="https://combogarage.pages.dev/"><strong>Find your next combo →</strong></a>
+</p>
+
+---
+
+## Run locally
+
+Plain HTML, CSS and JavaScript. No install step, build step or backend. From the repository root, serve the ready-to-run site with Python 3:
 
 ```sh
-rsvg-convert -w 384 -h 384 source/favicon.svg -o /tmp/combo-garage-favicon.png
-magick /tmp/combo-garage-favicon.png -resize 96x96 -strip dist/favicon.png
-magick /tmp/combo-garage-favicon.png -define icon:auto-resize=48,32,16 -strip dist/favicon.ico
-magick /tmp/combo-garage-favicon.png -resize 180x180 -background '#f4f1ea' -alpha remove -alpha off -strip dist/apple-touch-icon.png
+python3 -m http.server 8080 --directory dist
 ```
 
-After deployment, request indexing of `https://combogarage.pages.dev/` in Google Search Console and submit `sitemap.xml`. Google chooses the final search appearance; the new site name and favicon take effect only after it recrawls and processes the site.
+Open [localhost:8080](http://localhost:8080). Saved combos stay in the browser where you created them.
 
-## Stats
+- [How it works](docs/how-it-works.md) — stat calculations, coin mechanics, shuffle behaviour and sources.
+- [Development](docs/development.md) — project layout, asset pipeline and deployment metadata.
 
-Level = clamp(driver points + vehicle points, 0, 25). The ratio is that level's cell in the performance table, and blank cells are 1.0. Outfits never change stats. Food is left out: it's a timed boost, not a combo stat. CPU racers use a separate table row, so these numbers are for players.
+## Credits & license
 
-## What each stat does
-
-The hover text comes from tracing each stat through the game's code. Functions are in `main`; decompiled output is in `tools/work/re/stats_*.c` and `apply.c`. The stat enum at `0x3592098` sets the table order: 0x65b660 copies each ratio to the racer's stat block at `+0x178`.
-
-| Stat | Block offset | What the code does | Where |
-|---|---|---|---|
-| Surface speed | `+0x98` | Road, off-road, dirt, water, rail or wall ratio picked each frame; its inverse scales the speed value | `0x65b660` |
-| Glide speed | `+0x9c` | Used instead of surface speed in the gliding state | `0x65b660` |
-| Acceleration | `+0xa0` | Multiplies the per-frame growth of the racer's speed value | `0x65b660` |
-| Surface handling | `+0xac` | Clamped to 0–5, feeds the turn rate | `0x65b660` |
-| Handling grip | `+0xb0` | Multiplies the turn rate in the normal steering path | `0x65b660` |
-| Weight | `+0xa4`, `1/x` at `+0xa8` | Collision kick scales with 1 ÷ Weight, mapped to ×0.5–×2 | `0x2008b0` |
-| Coin speed | `+0xbc` | Shapes the coin curve (below) | `0x656360`, `0x65a220` |
-| Mini-turbo | `+0xc0` | Boost frames = `(int)(base × ratio)` | `0x664480` → `0x76dc90`, `0x66dae0` |
-| Invincibility | `+0xc4` | Multiplies the post-hit invincible frames | `0x66e2b0` |
-
-Coin curve, with `c = clamp(coins × 0.05, 0, 1)` and `s = clamp(CoinSpeedRatio − 0.5, 0, 1)`:
-
-```
-bonus = ease_in + s × (ease_out − ease_in)
-ease_out = sqrt(1 − (1 − c)²), ease_in = 1 − sqrt(1 − c²)
-speed scale = base + base × 0.05 × bonus
-top speed ∝ surface ratio × speed scale
-```
-
-Both curves reach 1 at 20 coins, so every combo gets the same maximum. Coin speed only changes how soon you get there.
-
-The top speed line is what the site shows. `0x654360` builds the speed cap at `+0x21c` as surface ratio × speed scale × race class ÷ a table value (`0x2d6bf80`, 1.57 in the normal gear), and `0x65a220` builds the speed scale. Class and table value are the same for every combo, so the two ratios decide it. `base` is 1.0 in normal driving, and gliding swaps the surface ratio for the glide ratio without touching the speed scale, so coins count there too.
-
-The speed scale applies on every surface, including rails and walls. Each frame `0x65b660` picks the surface stat, with rail (`+0x5c` bit 14) and wall (bit 17) ahead of the ground checks, then `0x65b660` and `0x654360` combine it with the inverse of the speed scale into the speed cap. Dirt, rail and wall are ×1.0 on every combo, so the speed scale is the only thing separating combos there: they all match at 0 coins, higher coin speed leads from 1 to 19 coins, and they match again at 20. At 1 coin the bonus runs from +0.2% to +1.4%. The gap peaks at 2.7 points at 10 coins. Rails also multiply the target speed by `RailSlideSpeedRate` (`+0xb8`), which is 1.0 from the constructor at `0xecdca0` and isn't set in any game file. It doesn't vary by combo.
-
-Invincible base frames are in `Gyml/VehicleTrickSetGParam/TrickSetBase`: 150–200 for spin, crash, big crash and squash, 70–100 for lightning. Tying `0x66e2b0`'s timer to those fields rests on the parameter names and the `InvincibleRatio` name, not on a traced getter.
-
-Not fully traced: the exact state that gates handling grip, what the second value in the Weight calculation is (the code at `0x2008b0` reads it from `+0xe8`), the check that gates the coin bonus (`+0x40 == 5` in `0x656360`), and tire grip, whose readers weren't found. Tire grip and glide and dirt handling are the same for every combo, so they don't affect any comparison.
-
-## Meta
-
-Competitive picks are Nintendo's published [Mario Kart World Open top 100 (July 2026)](https://www.nintendo.com/us/whatsnew/the-mario-kart-world-open-july-2026-event-results-are-in/), which lists drivers but not vehicles. The Online meta preset is a set of weights tuned so its top pairings match those driver classes. It isn't a race-time model. The vehicle picks in the meta builds rest on community guides and on the stat table.
-
-## License
-
-The BSD 3-Clause license covers this project's own code. The game data, character art, vehicle and coin models, fonts and sounds belong to Nintendo and aren't covered by it.
+An unofficial fan project. Mario Kart World and its game data, character art, vehicle and coin models, fonts and sounds belong to Nintendo. This project's own code is available under the [BSD 3-Clause license](LICENSE); Nintendo's assets are not covered by it.
