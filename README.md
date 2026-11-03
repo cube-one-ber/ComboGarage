@@ -40,7 +40,7 @@ Combo Garage puts the whole roster in a visual workshop, with path-traced vehicl
 
 More acceleration after a hit? Longer mini-turbos? A little more straight-line speed? **Tell the Finder what matters to you.** It ranks the stat builds against your priorities and groups identical options, so you can choose the look you like.
 
-[![The Finder with adjustable stat weights and six ranked builds, including Swoop, Spike, Toadette and Baby Luigi.](docs/assets/finder.webp)](https://combogarage.pages.dev/#finder)
+[![The Finder with adjustable stat weights and six ranked builds, including Swoop, Spike, Toadette and Peepa.](docs/assets/finder.webp)](https://combogarage.pages.dev/#finder)
 
 The interactive **combo map** lets you explore the trade-offs between any two core stats. The **Meta** section shows what top players actually race with: every driver in the top 100 of four 2026 Mario Kart World Opens, down to the outfit, and the driver and vehicle behind each standing time trial record. Stat ranges, coin curves and builds drawn from those combos sit alongside.
 
