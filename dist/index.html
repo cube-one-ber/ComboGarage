@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="google-site-verification" content="_lJqD6jr7xLgy-3N9rEkMl5mbdQgVqzNuWjSwYwzuQs" />
 <meta name="color-scheme" content="light">
-<meta name="theme-color" content="#f4f1ea">
+<meta name="theme-color" content="#0b0e1f">
 <title>Combo Garage — Mario Kart World Combo Builder</title>
 <meta name="description" content="Build your Mario Kart World combo. Compare 50 drivers and 40 vehicles, explore every stat, and find the right setup for the way you race.">
 <meta name="application-name" content="Combo Garage">
@@ -158,15 +158,15 @@
       </label>
     </div>
   </div>
-  <p class="chooser-hint" id="chooserHint">Hover to preview the change in the stats and top speeds. Everyone in a row shares exactly the same stats.</p>
+  <p class="chooser-hint" id="chooserHint">Hover to preview the change in the stats and top speeds. Each card is one stat class: everything on it has exactly the same stats.</p>
   <div id="chooserGrid" role="tabpanel" aria-labelledby="tabDrivers"></div>
 </section>
 
 <!-- ============================================================ META -->
-<section id="meta" class="section" aria-labelledby="metaTitle">
+<section id="meta" class="section section-night" aria-labelledby="metaTitle">
   <header class="section-head">
     <p class="eyebrow">The meta, explained</p>
-    <h2 class="race section-title" id="metaTitle">Speed barely moves. Acceleration does.</h2>
+    <h2 class="race section-title" id="metaTitle">Speed barely moves. <em>Acceleration does.</em></h2>
     <p class="lede">Every stat becomes a level from 0 to 25. The game then looks that level up in a multiplier table. Some tables barely change from level 0 to 25. Others more than double. That spread, together with what the best players actually pick, is the meta.</p>
   </header>
 
@@ -183,12 +183,31 @@
     </article>
 
     <article class="panel chart-card">
-      <h3 class="chart-title">What the top 100 drove</h3>
+      <div class="card-head">
+        <h3 class="chart-title">What the top 100 drive</h3>
+        <div class="seg seg-sm" role="group" aria-label="World Open event" id="openSeg"></div>
+      </div>
       <p class="chart-sub" id="openSub"></p>
       <div class="waffle" id="waffle" role="img"></div>
       <div class="open-summary" id="openSummary"></div>
     </article>
   </div>
+
+  <article class="panel chart-card records-card" aria-labelledby="recordsTitle">
+    <div class="records-copy">
+      <h3 class="chart-title" id="recordsTitle">What the record holders drive</h3>
+      <p class="chart-sub" id="recordsSub"></p>
+      <div class="veh-bars" id="vehBars"></div>
+      <p class="records-drivers" id="recordsDrivers"></p>
+    </div>
+    <div>
+      <div class="records-list">
+        <div class="records-list-head" aria-hidden="true"><span>Course</span><span>Combo</span><span>Time</span></div>
+        <ol id="recordsList" aria-label="Standing time trial records"></ol>
+      </div>
+      <p class="records-key"><i aria-hidden="true"></i>Records set with the same stats as your combo</p>
+    </div>
+  </article>
 
   <article class="panel chart-card coin-card">
     <div class="coin-copy">
@@ -201,9 +220,9 @@
   </article>
 
   <div class="takeaways">
-    <article class="takeaway"><span class="take-num">1</span><h3>Light drivers rule online</h3><p>The four lightest characters share one stat class. It has the highest acceleration, mini-turbo, handling grip and coin speed in the game.</p></article>
+    <article class="takeaway"><span class="take-num">1</span><h3>Light drivers rule online</h3><p>The four lightest characters share one stat class. It has the highest acceleration, mini-turbo, handling grip and coin speed in the game.<span id="takeLight"></span></p></article>
     <article class="takeaway"><span class="take-num">2</span><h3>Coins pay light builds first</h3><p>Everyone gets the same bonus at 20 coins. Coin speed decides how early it arrives: at 5 coins the best combo already has +3.0%, the worst +0.6%.</p></article>
-    <article class="takeaway"><span class="take-num">3</span><h3>Speed is three stats</h3><p>Road, off-road and water speed are separate stats. Baby Blooper is +2 on road but −3 off-road and on water.</p></article>
+    <article class="takeaway"><span class="take-num">3</span><h3>Speed is three stats</h3><p>Road, off-road and water speed are separate stats. Baby Blooper is +2 on road but −3 off-road and on water.<span id="takeSurface"></span></p></article>
   </div>
 
   <h3 class="sub-title">Meta builds</h3>
@@ -217,7 +236,7 @@
 <section id="finder" class="section" aria-labelledby="finderTitle">
   <header class="section-head">
     <p class="eyebrow">Finder</p>
-    <h2 class="race section-title" id="finderTitle">Build for the way you race.</h2>
+    <h2 class="race section-title" id="finderTitle">Build for the way <em>you race.</em></h2>
     <p class="lede">Weight the stats you care about. Each pairing gets a score: the weighted average of where each stat sits in its possible range. Pairings with identical stats are grouped.</p>
   </header>
 
@@ -262,7 +281,7 @@
 <section id="compare" class="section" aria-labelledby="compareTitle">
   <header class="section-head">
     <p class="eyebrow">Compare</p>
-    <h2 class="race section-title" id="compareTitle">Side by side.</h2>
+    <h2 class="race section-title" id="compareTitle">Side by <em>side.</em></h2>
     <p class="lede">Add up to three combos from the garage, the finder or your saved list.</p>
   </header>
   <div id="compareBody"></div>
@@ -279,6 +298,16 @@
   <div id="compareLevels"></div>
 </section>
 
+<!-- ============================================================ PARADE -->
+<section class="parade" aria-labelledby="paradeTitle">
+  <header class="section-head">
+    <p class="eyebrow">The whole garage</p>
+    <h2 class="race section-title" id="paradeTitle">Forty rides. <em>One next main.</em></h2>
+    <p class="lede">Every vehicle, path-traced from the game's own models and textures. Pick one to put it in the garage with your driver.</p>
+  </header>
+  <div class="road" id="road"></div>
+</section>
+
 <footer class="footer" id="method">
   <div class="footer-grid">
     <div>
@@ -292,7 +321,7 @@
     </div>
     <div>
       <h3>Sources</h3>
-      <p>Stats: <code id="srcArchive"></code> from the game files. Competitive picks: <a id="openLink" href="#" rel="noopener">Nintendo's Mario Kart World Open results</a>. Vehicle renders: the game's highest-detail models and textures, path-traced in Blender Cycles at 3840×2560. Character art and fonts come from the game's UI.</p>
+      <p>Stats: <code id="srcArchive"></code> from the game files. Online picks: <a id="openLink" href="#" rel="noopener">Nintendo's Mario Kart World Open results</a>. Time trial records: <a id="recordsLink" href="#" rel="noopener">mkwrs.com</a>, <span id="metaDate"></span>. Vehicle renders: the game's highest-detail models and textures, path-traced in Blender Cycles at 3840×2560. Character art and fonts come from the game's UI.</p>
     </div>
   </div>
   <div class="footer-bottom">

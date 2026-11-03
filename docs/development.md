@@ -14,10 +14,11 @@ Run this from the repository root, then open [localhost:8080](http://localhost:8
 
 - `dist/`: the site (`index.html`, `styles.css`, `app.js`, `data.json`, `fonts/`, `img/`).
 - `source/stat-export.json`: the stat export `dist/data.json` is built from.
+- `source/meta-usage.json`: what top players race with, from Nintendo's World Open top 100s and the standing time trial records. See [How it works](how-it-works.md#meta).
 
 These stay in the local project and aren't in this repo: the game dump, the original 3840×2560 vehicle renders (`outputs/vehicle-renders-4k/`), the 512×512 coin frames (`outputs/coin-spin/`), the build and render scripts (`tools/`) and the decompiled code (`tools/work/re/`). Paths below refer to that local project.
 
-Rebuild images and data with `tools/.venv/bin/python -I tools/py/build_site_assets.py` (add `vehicles`, `drivers`, `coin` or `sounds` to limit it). The coin frames come from `tools/render/coin_sheet.py`, which smooths the game's low-poly mesh. `coin` writes two sheets: `coin.webp` for the shuffle burst, loaded on demand, and the much smaller `coin-sm.webp` for the coin counter. Stat maths and copy live in `dist/app.js`. Fonts are the game's own, subset to WOFF2.
+Rebuild images and data with `tools/.venv/bin/python -I tools/py/build_site_assets.py` (add `vehicles`, `drivers`, `coin`, `sounds` or `data` to limit it; `data` rewrites only `data.json`). To refresh the Meta data after a new World Open or record, run `tools/.venv/bin/python -I tools/py/fetch_meta_usage.py`, then the build with `data`. It keeps only events on the current stats, so if a game update changes driver or vehicle stats, move `REBALANCE` in the fetch script to that update's date. The coin frames come from `tools/render/coin_sheet.py`, which smooths the game's low-poly mesh. `coin` writes two sheets: `coin.webp` for the shuffle burst, loaded on demand, and the much smaller `coin-sm.webp` for the coin counter. Stat maths and copy live in `dist/app.js`. Fonts are the game's own, subset to WOFF2.
 
 ## Search appearance
 

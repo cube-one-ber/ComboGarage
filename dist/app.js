@@ -70,7 +70,7 @@ const STAT_INFO = {
 
 const PRESETS = {
   online: { label: 'Online meta', w: { speed: 3, accel: 3, mt: 2, handling: 1, coin: 2, weight: 0 } },
-  tt: { label: 'Time trial', w: { speed: 5, accel: 1, mt: 1, handling: 1, coin: 0, weight: 0 } },
+  tt: { label: 'Time trial', w: { speed: 5, accel: 0, mt: 0, handling: 0, coin: 3, weight: 0 } },   // fitted to the standing records: see docs/how-it-works.md
   balanced: { label: 'Balanced', w: { speed: 1, accel: 1, mt: 1, handling: 1, coin: 1, weight: 0 } },
 };
 
@@ -110,7 +110,6 @@ function scorer(weights, terrain) {
   return (dc, vc) => (total ? parts.reduce((a, [k, w]) => a + w * norm(k, level(dc, vc, k)), 0) / total * 100 : 0);
 }
 const onlineScore = () => scorer(PRESETS.online.w, 'Tarmac');
-const openCount = name => D.worldOpen.drivers[name] || 0;
 
 /* ------------------------------------------------------------ images */
 const vSrc = (id, w) => `img/vehicles/${id}-${w}.webp`;
@@ -179,6 +178,7 @@ function setCombo(d, v, opts = {}) {
   if (before) tweenMeters(before);
   syncChooser();
   renderImpact();
+  syncRecords();
   renderCoins();
   renderFinderResults();
   syncButtons();
@@ -319,7 +319,8 @@ function renderStage(dc, vc, back) {
   const rank = comboRank(d.cls, v.cls);
   $('#stageTags').replaceChildren(...[
     rank === 1 ? h('span', { class: 'tag tag-hot', text: 'Online meta #1' }) : null,
-    d.opens ? h('span', { class: 'tag', text: d.opens + ' of top 100' }) : null,
+    d.opens ? h('span', { class: 'tag', text: plural(d.opens, 'top-100 place') }) : null,
+    comboRecords(d, v) ? h('span', { class: 'tag tag-record', text: plural(comboRecords(d, v), 'time trial record') }) : null,
     h('span', { class: 'tag', text: v.rideLabel }), h('span', { class: 'tag', text: d.cls }), h('span', { class: 'tag', text: v.cls }),
   ].filter(Boolean));
   const box = $('#outfits');
@@ -374,7 +375,7 @@ function renderStats() {
 
   const rank = comboRank(d.cls, v.cls), sc = Math.round(onlineScore()(d.cls, v.cls));
   $('#metaScore').replaceChildren(
-    h('span', { class: 'ms-num', text: sc }),
+    h('span', { class: 'ms-num', style: `--p:${sc}`, text: sc }),
     h('span', { class: 'ms-text' }, h('b', { text: `Online meta score · #${rank} of ${usedD.length * usedV.length}` }), h('br'), 'Scored with the Online meta weights on road.'));
 
   const dt = D.characters.filter(c => c.cls === d.cls && c.name !== d.name).map(c => c.name);
@@ -475,7 +476,7 @@ function hoverPreview(el, make) {
 }
 function driverTile(c) {
   const b = h('button', { class: 'pick pick-driver', type: 'button', 'data-cls': c.cls, 'data-name': c.name, 'aria-pressed': 'false', onclick: () => setCombo(drivers.get(c.id), state.vehicle) },
-    h('img', { src: dIcon(c.id), alt: '', width: 44, height: 44, loading: 'lazy' }), h('span', { text: c.name }));
+    h('img', { src: dIcon(c.id), alt: '', width: 78, height: 78, loading: 'lazy' }), h('span', { text: c.name }));
   hoverPreview(b, () => ({ driver: drivers.get(c.id) }));
   return b;
 }
@@ -501,9 +502,11 @@ function renderChooser() {
     const groups = new Map();
     for (const x of items) (groups.get(x.cls) || groups.set(x.cls, []).get(x.cls)).push(x);
     const keys = [...groups.keys()].sort((a, b) => table[a].Weight - table[b].Weight || table[b].Acceleration - table[a].Acceleration || a.localeCompare(b));
+    const cards = h('div', { class: 'class-grid' + (isD ? '' : ' vehicles') });
+    grid.append(cards);
     for (const c of keys) {
       const row = table[c], f = isD ? (n => n) : signed;
-      grid.append(h('div', { class: 'class-row', 'data-cls': c },
+      cards.append(h('div', { class: 'class-row', 'data-cls': c },
         h('div', { class: 'class-info' },
           h('div', { class: 'class-name' }, c, h('small', { text: isD ? 'driver points' : 'vehicle bonus' })),
           minis([['Spd', f(row[sk])], ['Acc', f(row.Acceleration)], ['MT', f(row.DriftDashTime)], ['Coin', f(row.CoinSpeedRatio)]])),
@@ -644,36 +647,76 @@ function renderCoins() {
     h('tbody', {}, series.map(sr => h('tr', {}, h('td', { text: sr.short }), cols.map(c => h('td', { class: now(c), text: read(sr.at(c)) })))))));
 }
 
-/* ------------------------------------------------------------ meta: World Open */
+/* ------------------------------------------------------------ meta: what top players race with
+   Two real sources. Nintendo's World Open top 100s name each racer's driver and outfit, but not the
+   vehicle. The standing time trial records name the vehicle too. Both come from
+   source/meta-usage.json; only events on the current stats (version 1.7.0 on) are included. */
+let openTotals = new Map(), use;
+function tallyUsage() {
+  const bump = (m, k) => m.set(k, (m.get(k) || 0) + 1);
+  openTotals = new Map();
+  const clsPlaces = new Map();
+  for (const e of D.meta.opens) for (const id of e.top100) { const d = drivers.get(id); bump(openTotals, d.name); bump(clsPlaces, d.cls); }
+  const recDriver = new Map(), recVehicle = new Map(), recPair = new Map(), recExact = new Map();
+  for (const r of D.meta.records) {
+    const d = drivers.get(r.d), v = vehicles.get(r.v);
+    bump(recDriver, d.name); bump(recVehicle, v.id); bump(recPair, d.cls + v.cls); bump(recExact, d.name + '|' + v.id);
+  }
+  const top = m => Math.max(...m.values());
+  use = {
+    places: openTotals, clsPlaces, total: D.meta.opens.length * 100, events: D.meta.opens.length,
+    recDriver, recVehicle, recPair, recExact, records: D.meta.records.length,
+    mostPlaces: top(openTotals), mostDriverRecords: top(recDriver), mostPairRecords: top(recPair),
+  };
+}
+const openCount = name => openTotals.get(name) || 0;
+const comboRecords = (d, v) => use.recExact.get(d.name + '|' + v.id) || 0;
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+const say = n => ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'][n] ?? String(n);   // small counts read as words
+
+let openPick = 'all';
 function renderOpen() {
-  const counts = Object.entries(D.worldOpen.drivers).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-  const byName = new Map(D.characters.map(c => [c.name, c]));
+  const opens = D.meta.opens, scope = openPick === 'all' ? opens : opens.filter(e => e.id === openPick);
+  $('#openSeg').replaceChildren(...[['all', `All ${opens.length}`, 'Every World Open on the current stats'], ...opens.map(e => [e.id, e.name.slice(0, 3), e.name])]
+    .map(([id, label, title]) => h('button', { type: 'button', title, 'aria-pressed': String(openPick === id), onclick: () => { openPick = id; renderOpen(); } }, label)));
+  const racers = scope.flatMap(e => e.top100.map((id, i) => ({ d: drivers.get(id), rank: i + 1, ev: e })));
+  const total = racers.length, count = new Map();
+  for (const r of racers) count.set(r.d.name, (count.get(r.d.name) || 0) + 1);
+  // grouped by driver, most-raced first; each driver's outfits sit together
+  racers.sort((a, b) => count.get(b.d.name) - count.get(a.d.name) || a.d.name.localeCompare(b.d.name)
+    || (a.d.outfit !== 'Standard') - (b.d.outfit !== 'Standard') || a.d.outfit.localeCompare(b.d.outfit) || a.ev.start.localeCompare(b.ev.start) || a.rank - b.rank);
+
   const waffle = $('#waffle'), lit = names => {
     waffle.classList.toggle('dim', !!names);
     $$('button', waffle).forEach(b => b.classList.toggle('lit', !!names && names.includes(b.dataset.name)));
   };
-  waffle.setAttribute('aria-label', 'Top 100 racers by driver: ' + counts.map(([n, c]) => `${n} ${c}`).join(', '));
-  for (const [name, n] of counts) {
-    const c = byName.get(name);
-    for (let i = 0; i < n; i++) {
-      const b = h('button', { type: 'button', 'data-name': name, 'aria-label': `${name}, ${n} of 100`, tabindex: i ? '-1' : '0', onclick: () => setCombo(drivers.get(c.id), state.vehicle) },
-        h('img', { src: dIcon(c.id), alt: '', loading: 'lazy' }));
-      const tw = D.characters.filter(x => x.cls === c.cls && x.name !== name).map(x => x.name);
-      tipOn(b, () => [h('strong', { text: `${n} of 100` }), h('div', { text: name }), h('div', { class: 'tt-sub', text: tw.length ? `${c.cls}, same stats as ${tw.join(', ')}` : c.cls })]);
-      b.addEventListener('pointerenter', () => lit([name]));
-      b.addEventListener('pointerleave', () => lit(null));
-      waffle.append(b);
-    }
-  }
+  waffle.classList.toggle('all', total > 100);
+  waffle.setAttribute('aria-label', `${total} top-100 places by driver: ` + [...count].sort((a, b) => b[1] - a[1]).map(([n, c]) => `${n} ${c}`).join(', '));
+  const firsts = new Set();
+  waffle.replaceChildren(...racers.map(r => {
+    const name = r.d.name, n = count.get(name), first = !firsts.has(name);
+    firsts.add(name);
+    const look = r.d.outfit === 'Standard' ? '' : ` in the ${r.d.outfit} outfit`;
+    const b = h('button', { type: 'button', 'data-name': name, 'aria-label': `${name}, ${n} of ${total}`, tabindex: first ? '0' : '-1', onclick: () => setCombo(r.d, state.vehicle) },
+      h('img', { src: dIcon(r.d.id), alt: '', loading: 'lazy' }));
+    const tw = D.characters.filter(x => x.cls === r.d.cls && x.name !== name).map(x => x.name);
+    tipOn(b, () => [h('strong', { text: name }), h('div', { text: `${n} of ${total} top-100 places` }),
+      h('div', { class: 'tt-sub tt-sep', text: `#${r.rank} in the ${r.ev.name} Open${look}` }),
+      h('div', { class: 'tt-sub', text: tw.length ? `${r.d.cls}, same stats as ${tw.join(', ')}` : r.d.cls })]);
+    b.addEventListener('pointerenter', () => lit([name]));
+    b.addEventListener('pointerleave', () => lit(null));
+    return b;
+  }));
+
   const groups = new Map();
-  for (const [name, n] of counts) {
-    const c = byName.get(name), g = groups.get(c.cls) || groups.set(c.cls, { cls: c.cls, n: 0, names: [] }).get(c.cls);
+  for (const [name, n] of [...count].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))) {
+    const cls = D.characters.find(c => c.name === name).cls, g = groups.get(cls) || groups.set(cls, { cls, n: 0, names: [] }).get(cls);
     g.n += n; g.names.push(name);
   }
-  const top = [...groups.values()].sort((a, b) => b.n - a.n).slice(0, 5);
-  const max = top[0].n;
+  const top = [...groups.values()].sort((a, b) => b.n - a.n).slice(0, 5), max = top[0].n;
+  const sum = t => [...groups.values()].filter(g => t(D.driverClasses[g.cls].Weight)).reduce((a, g) => a + g.n, 0);
   $('#openSummary').replaceChildren(...top.map(g => {
-    const row = h('div', { class: 'open-bar', tabindex: '0', 'aria-label': `${g.cls}: ${g.n} of 100, ${g.names.join(', ')}` },
+    const row = h('div', { class: 'open-bar', tabindex: '0', 'aria-label': `${g.cls}: ${g.n} of ${total}, ${g.names.join(', ')}` },
       h('span', { text: g.names[0] + (g.names.length > 1 ? ` +${g.names.length - 1}` : '') }),
       h('span', { class: 'bar-wrap' }, h('span', { class: 'bar', style: `width:${g.n / max * 100}%` })),
       h('span', { class: 'num', text: g.n }));
@@ -681,22 +724,98 @@ function renderOpen() {
     row.addEventListener('pointerleave', () => lit(null));
     row.addEventListener('focus', () => lit(g.names));
     row.addEventListener('blur', () => lit(null));
-    tipOn(row, () => [h('strong', { text: `${g.n} of 100` }), h('div', { text: `${g.cls}: ${g.names.join(', ')}` })]);
+    tipOn(row, () => [h('strong', { text: `${g.n} of ${total}` }), h('div', { text: `${g.cls}: ${g.names.join(', ')}` })]);
     return row;
   }),
-  h('p', { class: 'open-note' }, (() => {
-    const sum = t => [...groups.values()].filter(g => t(D.driverClasses[g.cls].Weight)).reduce((a, g) => a + g.n, 0);
-    return [h('b', { text: `${sum(w => w <= 8)} of 100` }), ' drove one of the seven lightest stat classes. ', h('b', { text: String(sum(w => w >= 12)) }), ' drove one of the four heaviest. Nintendo\'s list names drivers only, so vehicles aren\'t shown.'];
-  })()));
-  $('#openSub').textContent = 'Nintendo\'s published top 100 racers for the July 2026 Mario Kart World Open, one icon per racer.';
-  $('#openLink').href = D.worldOpen.url;
+  h('p', { class: 'open-note' }, h('b', { text: `${sum(w => w <= 8)} of ${total}` }), ' drove one of the seven lightest stat classes. ',
+    h('b', { text: String(sum(w => w >= 12)) }), ' drove one of the four heaviest. Nintendo\'s results name the driver, not the vehicle. For vehicles, see the time trial records below.'));
+  $('#openSub').textContent = scope.length > 1
+    ? `Nintendo's published top 100 from all ${say(scope.length)} World Opens since version 1.7.0, one icon per racer, in the outfit they raced in.`
+    : `Nintendo's published top 100 from the ${scope[0].name} World Open, one icon per racer, in the outfit they raced in.`;
+  $('#openLink').href = D.meta.eventsUrl;
+
+  const swoop = drivers.get('Driver_Basabasa_00').cls;
+  $('#takeLight').textContent = ` In ${say(use.events)} World Opens, that class took ${use.clsPlaces.get(swoop)} of ${use.total} top-100 places.`;
 }
 
+function renderRecords() {
+  const since = D.meta.rebalance.date;
+  const recs = D.meta.records.map(r => ({ ...r, d: drivers.get(r.d), v: vehicles.get(r.v) }));
+  const snes = recs.filter(r => r.snes).length;
+  $('#recordsSub').textContent = `Online results don't name vehicles. Time trial records do: these are all ${recs.length} standing records, ${recs.length - snes} courses and ${snes} SNES courses. Click a record to load its combo.`;
+  $('#recordsLink').href = D.meta.recordsUrl;
+  $('#metaDate').textContent = 'checked ' + new Date(D.meta.retrieved + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  const list = $('#recordsList'), lit = id => {
+    list.classList.toggle('dim', !!id);
+    $$('li', list).forEach(li => li.classList.toggle('lit', !!id && li.dataset.v === id));
+  };
+  const byVehicle = [...use.recVehicle].sort((a, b) => b[1] - a[1] || vehicles.get(a[0]).name.localeCompare(vehicles.get(b[0]).name));
+  const max = byVehicle[0][1];
+  $('#vehBars').replaceChildren(...byVehicle.map(([id, n]) => {
+    const v = vehicles.get(id), tracks = recs.filter(r => r.v === v).map(r => r.track);
+    const b = h('button', { class: 'veh-bar', type: 'button', 'aria-label': `${v.name}: ${plural(n, 'record')}. Load it into the garage`, onclick: () => { setCombo(state.driver, v); toast('Loaded into the garage'); } },
+      h('img', { src: vCard(v.id), alt: '', width: 72, height: 48, loading: 'lazy' }),
+      h('span', { class: 'veh-bar-name', text: v.name }),
+      h('span', { class: 'bar-wrap' }, h('span', { class: 'bar', style: `width:${n / max * 100}%` })),
+      h('span', { class: 'num', text: n }));
+    tipOn(b, () => [h('strong', { text: `${v.name}: ${plural(n, 'record')}` }), h('div', { text: tracks.slice(0, 5).join(', ') + (tracks.length > 5 ? ` and ${tracks.length - 5} more` : '') }),
+      h('div', { class: 'tt-sub tt-sep', text: `${v.rideLabel}, ${v.cls}. Click to put it in the garage.` })]);
+    for (const [on, off] of [['pointerenter', 'pointerleave'], ['focus', 'blur']]) {
+      b.addEventListener(on, () => lit(v.id));
+      b.addEventListener(off, () => lit(null));
+    }
+    return b;
+  }));
+  const byDriver = [...use.recDriver].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 4);
+  $('#recordsDrivers').replaceChildren('Most records by driver: ', ...byDriver.flatMap(([name, n], i) => [i ? ', ' : '', h('b', { text: name }), ` ${n}`]), '.');
+
+  list.replaceChildren(...recs.map(r => {
+    const old = r.date < since, look = r.d.outfit === 'Standard' ? '' : ` (${r.d.outfit})`;
+    const li = h('li', { 'data-v': r.v.id, 'data-pair': r.d.cls + r.v.cls },
+      h('button', { type: 'button', 'aria-label': `${r.track}, ${r.time} by ${r.player}: ${r.d.name}${look} on the ${r.v.name}. Load this combo`, onclick: () => { setCombo(r.d, r.v); toast('Loaded into the garage'); } },
+        h('span', { class: 'rec-track' }, r.track.replace(/^SNES /, ''), r.snes ? h('small', { text: 'SNES' }) : null, old ? h('small', { class: 'rec-old', text: 'pre-1.7' }) : null),
+        h('span', { class: 'rec-combo' },
+          h('img', { class: 'rec-d', src: dIcon(r.d.id), alt: '', width: 30, height: 30, loading: 'lazy' }),
+          h('img', { class: 'rec-v', src: vCard(r.v.id), alt: '', width: 45, height: 30, loading: 'lazy' }),
+          h('span', { text: `${r.d.name} · ${r.v.name}` })),
+        h('span', { class: 'rec-time', text: r.time })));
+    tipOn(li, () => [h('strong', { text: r.track }), h('div', { text: `${r.time} by ${r.player}, ${r.date}` }),
+      h('div', { class: 'tt-sub tt-sep', text: `${r.d.name}${look} on the ${r.v.name}: ${r.d.cls} + ${r.v.cls}` }),
+      old ? h('div', { class: 'tt-sub', text: 'Set before version 1.7.0, which raised low acceleration and some gliding speeds.' }) : null].filter(Boolean));
+    return li;
+  }));
+  syncRecords();
+
+  const bowser = drivers.get('Driver_Koopa_00'), reel = vehicles.get('Vehicle_Mov_00'), n = comboRecords(bowser, reel);
+  const lv = ['TopSpeedTarmac', 'TopSpeedGravel', 'TopSpeedWater'].map(k => level(bowser.cls, reel.cls, k));
+  $('#takeSurface').textContent = n && lv.every(x => x === lv[0]) ? ` Bowser on the Reel Racer is level ${lv[0]} on all three, and holds ${plural(n, 'time trial record')}.` : '';
+}
+function syncRecords() {   // mark the records set on the same stats as the combo in the garage
+  const mine = state.driver.cls + state.vehicle.cls;
+  $$('#recordsList li').forEach(li => li.classList.toggle('yours', li.dataset.pair === mine));
+}
+
+/* Each build is a combo top players actually win with. Notes count from the data, so they stay true when it's refreshed. */
 const BUILDS = [
-  { d: 'Driver_Basabasa_00', v: 'Vehicle_Hvc_00', title: 'Online meta', note: 'The most-picked driver in the top 100, in the pairing the Online meta weights rank first. Mach Rocket has identical stats.' },
-  { d: 'Driver_Basabasa_00', v: 'Vehicle_Kgs_00', title: 'Road kart', note: 'Trades one level of acceleration, mini-turbo and coin speed for one more level of road speed. Like the H.O.G., it\'s built for road.' },
-  { d: 'Driver_Kinopico_00', v: 'Vehicle_Hvc_00', title: 'Faster light', note: 'The second most-picked driver. Two more levels of road speed than Swoop, for two less acceleration and coin speed.' },
-  { d: 'Driver_Wario_00', v: 'Vehicle_Bsn_00', title: 'Speed first', note: 'Reaches level 17, the highest road speed there is. Wario matches Bowser\'s road speed with better acceleration, so suits solo time trials.' },
+  { d: 'Driver_Basabasa_00', v: 'Vehicle_Hvc_00', title: 'Online favourite', note: () => {
+    const n = openCount('Swoop');
+    return `Swoop took ${n} of ${use.total} top-100 places in ${say(use.events)} World Opens${n === use.mostPlaces ? ', more than any other driver' : ''}. The Online meta weights rank this pairing first. Mach Rocket has identical stats.`;
+  } },
+  { d: 'Driver_KinopicoExplore_00', v: 'Vehicle_Kgs_00', title: 'Record setter', note: () => {
+    const n = use.recPair.get('D04V03') || 0;
+    const online = [...use.places.values()].filter(x => x > openCount('Toadette')).length + 1;
+    return `Toadette and Nabbit share these stats, and on the Baby Blooper they hold ${n} of the ${use.records} time trial records${n === use.mostPairRecords ? ', more than any other pairing' : ''}. ` +
+      (online === 2 ? 'Toadette is the second most-raced driver online too.' : `Online, Toadette took ${openCount('Toadette')} top-100 places.`);
+  } },
+  { d: 'Driver_Hanachan_00', v: 'Vehicle_Bsn_00', title: 'Top speed', note: () => {
+    const n = use.recDriver.get('Wiggler') || 0, k = use.recExact.get('Wiggler|Vehicle_Bsn_00') || 0;
+    return `Level 17, the highest road speed there is. Wiggler holds ${plural(n, 'time trial record')}${n === use.mostDriverRecords ? ', more than any other driver' : ''}, ${k} on the Big Horn. Wario has the same stats.`;
+  } },
+  { d: 'Driver_Koopa_00', v: 'Vehicle_Mov_00', title: 'All-terrain', note: () => {
+    const lv = level(drivers.get('Driver_Koopa_00').cls, vehicles.get('Vehicle_Mov_00').cls, 'TopSpeedTarmac'), n = use.recExact.get('Bowser|Vehicle_Mov_00') || 0, all = use.recVehicle.get('Vehicle_Mov_00') || 0;
+    return `Level ${lv} speed on road, off-road and water alike. Bowser holds ${plural(n, 'time trial record')} on it, and the Reel Racer appears in ${all} of ${use.records}.`;
+  } },
 ];
 function comboArt(d, v, extra) {
   return h('div', { class: extra || 'result-art' },
@@ -718,7 +837,7 @@ function renderBuilds() {
       h('div', { class: 'build-body' },
         h('p', { class: 'eyebrow', text: b.title }),
         h('h4', { text: `${d.name} + ${v.name}` }),
-        h('p', { text: b.note }),
+        h('p', { text: b.note() }),
         levelChips(d, v),
         h('div', { class: 'build-actions' },
           h('button', { class: 'btn btn-primary btn-sm', type: 'button', onclick: () => { setCombo(d, v); $('#garage').scrollIntoView(); toast('Loaded into the garage'); } }, 'Load'),
@@ -733,6 +852,16 @@ function renderGlossary() {
 }
 
 /* ------------------------------------------------------------ finder */
+function presetNote() {   // why each preset weighs what it does
+  const since = D.meta.records.filter(r => r.date >= D.meta.rebalance.date).length;
+  return {
+    online: `Online meta's top pick is the stat class top players raced most in ${say(D.meta.opens.length)} World Opens.`,
+    tt: `Time trial is fitted to the ${since} standing records set on current stats. They reward top speed and coin speed, not acceleration.`,
+    balanced: 'Balanced weighs the five race stats equally.',
+    custom: 'Your own weights.',
+  }[state.finder.preset] + ' Weight counts heavier as better.';
+}
+const fillRange = el => el.style.setProperty('--p', (el.value - el.min) / (el.max - el.min) * 100 + '%');   // the slider's filled part
 function renderFinderControls() {
   const seg = $('#presetSeg');
   seg.replaceChildren(...[...Object.entries(PRESETS).map(([id, p]) => [id, p.label]), ['custom', 'Custom']].map(([id, label]) =>
@@ -741,14 +870,16 @@ function renderFinderControls() {
   box.replaceChildren(h('h3', { text: 'What matters to you' }),
     ...CORE.map(c => h('div', { class: 'weight' },
       h('label', { for: 'w-' + c.id }, c.name, h('output', { id: 'wo-' + c.id, text: state.finder.weights[c.id] })),
-      h('input', { id: 'w-' + c.id, type: 'range', min: 0, max: 5, step: 1, value: state.finder.weights[c.id], oninput: e => {
+      h('input', { id: 'w-' + c.id, type: 'range', min: 0, max: 5, step: 1, value: state.finder.weights[c.id], style: `--p:${state.finder.weights[c.id] * 20}%`, oninput: e => {
         state.finder.weights[c.id] = +e.target.value;
+        fillRange(e.target);
         $('#wo-' + c.id).textContent = e.target.value;
         state.finder.preset = 'custom';
+        $('#weightsNote').textContent = presetNote();
         $$('#presetSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.preset === 'custom')));
         renderFinderResults();
       } }))),
-    h('p', { class: 'weights-note', text: 'Online meta is tuned so its top picks match the classes top players chose in the World Open. Weight counts heavier as better.' }));
+    h('p', { class: 'weights-note', id: 'weightsNote', text: presetNote() }));
   const opts = CORE.map(c => h('option', { value: c.id, text: c.name }));
   $('#axisX').replaceChildren(...opts.map(o => o.cloneNode(true)));
   $('#axisY').replaceChildren(...opts.map(o => o.cloneNode(true)));
@@ -758,12 +889,14 @@ function usePreset(id) {
   state.finder.preset = id;
   if (PRESETS[id]) state.finder.weights = { ...PRESETS[id].w };
   $$('#presetSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.preset === id)));
-  CORE.forEach(c => { $('#w-' + c.id).value = state.finder.weights[c.id]; $('#wo-' + c.id).textContent = state.finder.weights[c.id]; });
+  $('#weightsNote').textContent = presetNote();
+  CORE.forEach(c => { $('#w-' + c.id).value = state.finder.weights[c.id]; fillRange($('#w-' + c.id)); $('#wo-' + c.id).textContent = state.finder.weights[c.id]; });
   renderFinderResults();
 }
-function repDriver(dc) {
+function repDriver(dc) {   // a class is shown by the driver top players use most: record holders for time trials, else online
   if (state.driver.cls === dc) return state.driver;
-  const c = D.characters.filter(x => x.cls === dc).sort((a, b) => openCount(b.name) - openCount(a.name) || a.name.localeCompare(b.name))[0];
+  const tt = state.finder.preset === 'tt', fame = n => (tt ? (use.recDriver.get(n) || 0) * 1000 : 0) + openCount(n);
+  const c = D.characters.filter(x => x.cls === dc).sort((a, b) => fame(b.name) - fame(a.name) || a.name.localeCompare(b.name))[0];
   return drivers.get(c.id);
 }
 const repVehicle = vc => (state.vehicle.cls === vc ? state.vehicle : D.vehicles.find(v => v.cls === vc));
@@ -871,7 +1004,7 @@ function removeCompare(p) {
 const compareList = () => [...state.compare].sort((a, b) => a.slot - b.slot).map(c => ({ ...c, ...resolve(c) }));
 function renderCompare() {
   const box = $('#compareBody'), levels = $('#compareLevels'), list = compareList(), t = state.terrain;
-  const empty = 3 - list.length;
+  const free = [0, 1, 2].filter(i => !list.some(c => c.slot === i));
   const cols = h('div', { class: 'compare-cols' },
     list.map(c => h('article', { class: 'panel cmp-card' },
       comboArt(c.d, c.v),
@@ -879,9 +1012,11 @@ function renderCompare() {
       h('button', { class: 'icon-btn', type: 'button', 'aria-label': `Remove ${c.d.name} on ${c.v.name}`, onclick: () => removeCompare({ d: c.d.id, v: c.v.id }) }, '×'),
       h('div', { class: 'cmp-body' }, h('h4', { text: `${c.d.name} + ${c.v.name}` }),
         h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: () => { setCombo(c.d, c.v); $('#garage').scrollIntoView(); } }, 'Load')))),
-    Array.from({ length: empty }, (_, i) => h('div', { class: 'cmp-add' }, i === 0
-      ? h('div', {}, h('p', { text: 'Use the current combo from the garage.' }), h('button', { class: 'btn btn-primary btn-sm', type: 'button', onclick: () => addCompare(pair()) }, '+ Add ' + state.driver.name + ' + ' + state.vehicle.name))
-      : h('span', { text: 'Empty slot' }))));
+    free.map((slot, i) => h('div', { class: 'cmp-add', style: `--slot:${SLOT[slot]}` },
+      h('span', { class: 'cmp-letter', 'aria-hidden': 'true', text: 'ABC'[slot] }),
+      i === 0
+        ? h('div', {}, h('p', { text: 'Use the current combo from the garage.' }), h('button', { class: 'btn btn-primary btn-sm', type: 'button', onclick: () => addCompare(pair()) }, '+ Add ' + state.driver.name + ' + ' + state.vehicle.name))
+        : h('span', { text: 'Empty slot' }))));
   box.replaceChildren(cols);
   levels.replaceChildren();
   renderRace();
@@ -1229,6 +1364,34 @@ function coinBurst(x, y, n) {
 }
 
 /* ------------------------------------------------------------ wiring */
+/* Every vehicle drives past in two lanes, karts and bikes. Each lane holds its line-up twice and slides
+   by exactly one copy, so the loop is seamless; the copy is hidden from assistive tech. */
+function renderParade() {
+  const lane = (list, cls) => {
+    const tile = (v, copy) => h('button', {
+      class: 'ride', type: 'button', tabindex: copy ? '-1' : null, 'aria-hidden': copy ? 'true' : null,
+      'aria-label': copy ? null : `${v.name}, ${v.rideLabel.toLowerCase()}. Put it in the garage`,
+      onclick: () => { setCombo(state.driver, v); $('#garage').scrollIntoView({ behavior: calmMotion() ? 'auto' : 'smooth' }); toast(`${v.name} is in the garage`); },
+    }, h('img', { src: vCard(v.id), alt: '', width: 360, height: 240, loading: 'lazy', decoding: 'async' }), h('span', { text: v.name }));
+    return h('div', { class: 'lane ' + cls, role: 'group', 'aria-label': cls === 'karts' ? 'Karts' : 'Bikes' },
+      h('div', { class: 'lane-track', style: `--n:${list.length}` }, list.map(v => tile(v, false)), list.map(v => tile(v, true))));
+  };
+  const karts = D.vehicles.filter(v => v.ride === 'Kart'), bikes = D.vehicles.filter(v => v.ride !== 'Kart');
+  $('#road').replaceChildren(lane(karts, 'karts'), h('div', { class: 'road-line', 'aria-hidden': 'true' }), lane(bikes, 'bikes'));
+}
+/* The top bar marks the section crossing the middle of the screen. */
+function spyNav() {
+  const owner = { garage: 'garage', chooser: 'garage', meta: 'meta', finder: 'finder', compare: 'compare' };
+  const links = $$('.topnav a');
+  const io = new IntersectionObserver(entries => {
+    for (const e of entries) {
+      if (!e.isIntersecting) continue;
+      const href = '#' + owner[e.target.id];
+      links.forEach(a => { if (a.getAttribute('href') === href) a.setAttribute('aria-current', 'location'); else a.removeAttribute('aria-current'); });
+    }
+  }, { rootMargin: '-45% 0px -50% 0px' });
+  for (const id of Object.keys(owner)) io.observe(document.getElementById(id));
+}
 function setTerrain(t) {
   state.terrain = t;
   $$('#terrainSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.terrain === t)));
@@ -1311,7 +1474,7 @@ async function init() {
   if (!res.ok) throw new Error('data request failed');
   D = await res.json();
   drivers = new Map(); vehicles = new Map(D.vehicles.map(v => [v.id, v]));
-  for (const c of D.characters) for (const o of c.outfits) drivers.set(o.id, { id: o.id, name: c.name, outfit: o.outfit, cls: c.cls, char: c, opens: openCount(c.name) });
+  for (const c of D.characters) for (const o of c.outfits) drivers.set(o.id, { id: o.id, name: c.name, outfit: o.outfit, cls: c.cls, char: c, opens: 0 });
   usedD = [...new Set(D.characters.map(c => c.cls))].sort();
   usedV = [...new Set(D.vehicles.map(v => v.cls))].sort();
   ranges = {};
@@ -1320,6 +1483,8 @@ async function init() {
     for (const a of usedD) for (const b of usedV) { const l = level(a, b, k); lo = Math.min(lo, l); hi = Math.max(hi, l); }
     ranges[k] = [lo, hi];
   }
+  tallyUsage();
+  for (const d of drivers.values()) d.opens = openCount(d.name);
   $('#driverTotal').textContent = D.characters.length;
   $('#vehicleTotal').textContent = D.vehicles.length;
   $('#srcArchive').textContent = D.source.archive.split('/').pop();
@@ -1329,9 +1494,12 @@ async function init() {
   state.vehicle = vehicles.get(q.get('v')) || vehicles.get('Vehicle_Hvc_00');
   state.coins = clamp(parseInt(q.get('c'), 10) || 0, 0, COIN_MAX);
   wire();
+  spyNav();
   renderCoinCount();
   renderFinderControls();
   renderOpen();
+  renderRecords();
+  renderParade();
   renderBuilds();
   renderGlossary();
   renderChooser();

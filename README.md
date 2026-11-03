@@ -42,13 +42,13 @@ More acceleration after a hit? Longer mini-turbos? A little more straight-line s
 
 [![The Finder with adjustable stat weights and six ranked builds, including Swoop, Spike, Toadette and Baby Luigi.](docs/assets/finder.webp)](https://combogarage.pages.dev/#finder)
 
-The interactive **combo map** lets you explore the trade-offs between any two core stats. The **Meta** section brings together stat ranges, coin curves, suggested builds and the driver picks from the July 2026 Mario Kart World Open.
+The interactive **combo map** lets you explore the trade-offs between any two core stats. The **Meta** section shows what top players actually race with: every driver in the top 100 of four 2026 Mario Kart World Opens, down to the outfit, and the driver and vehicle behind each standing time trial record. Stat ranges, coin curves and builds drawn from those combos sit alongside.
 
 Stats come from the game's own tables. Finder scores reflect the weights you choose; they aren't predicted lap times. [See the maths and sources →](docs/how-it-works.md)
 
 ## A garage worth browsing
 
-Every one of the **40 vehicles** has been path-traced in Blender Cycles from the game's highest-detail models and textures, with original renders at **3840 × 2560**. Character art, outfits and the game's own typefaces bring the rest of the garage to life.
+Every one of the **40 vehicles** has been path-traced in Blender Cycles from the game's highest-detail models and textures, with original renders at **3840 × 2560**. They park on a turntable in the night-time showroom, and all forty drive past on the road at the bottom of the page. Character art, outfits and the game's own typefaces bring the rest of the garage to life.
 
 Feeling lucky? Hit **Shuffle**. Three reels land on a driver, a kart or bike, and your ride, with roulette sounds and a coin burst to finish. Mute is one tap away, and reduced-motion settings are respected.
 

@@ -57,4 +57,16 @@ Not fully traced: the exact state that gates handling grip, what the second valu
 
 ## Meta
 
-Competitive picks are Nintendo's published [Mario Kart World Open top 100 (July 2026)](https://www.nintendo.com/us/whatsnew/the-mario-kart-world-open-july-2026-event-results-are-in/), which lists drivers but not vehicles. The Online meta preset is a set of weights tuned so its top pairings match those driver classes. It isn't a race-time model. The vehicle picks in the meta builds rest on community guides and on the stat table.
+Two sources show what top players race with. `tools/py/fetch_meta_usage.py` collects both into `source/meta-usage.json`, last checked on 3 November 2026.
+
+- **Online.** Nintendo's published top 100 for every [Mario Kart World Open](https://www.nintendo.com/us/gaming-systems/switch-2/featured-games/mario-kart-world/online-events/) since version 1.7.0: July, August, September and October 2026, 400 places in all. Every one used the same settings: VS Race, 150cc, no teams, normal items, connected courses. The rankings name each racer's driver and outfit, not their vehicle, and Nintendo's data calls Baby Rosalina "Baby Rosetta". The June 2026 Global Online Challenge is left out because it ran before 1.7.0 raised low acceleration and some gliding speeds. Version 1.8.0 changed no driver or vehicle stats, so the site's stats match every event it includes.
+- **Time trials.** The standing records on [mkwrs.com](https://mkwrs.com/mkworld/): 30 courses and 10 SNES courses, each with its driver, outfit and vehicle. Five were set before 1.7.0. The site marks them, and they're left out of the Time trial fit.
+
+Across the four Opens, the seven lightest stat classes took 279 of 400 places, and Swoop's class took 147 on its own. August was the exception: light classes took 48 of its 100. In the records, the Baby Blooper and Reel Racer appear 9 times each, Toadette or Nabbit on the Baby Blooper hold 6, and Wiggler holds 10.
+
+**Presets.** Neither is a lap-time model. Each scores a pairing by where its stats sit in their possible range, and the weights were checked against the data above:
+
+- *Online meta* (speed 3, acceleration 3, mini-turbo 2, handling 1, coin speed 2). Take each driver class's best-scoring pairing: those scores rank the classes with a Spearman correlation of 0.69 against how often top players raced them, and the top pick, Swoop's class on the R.O.B. H.O.G., is the most-raced class. A search of every 0–5 weighting tops out at 0.77. That's a small gain on a noisy signal, since popularity isn't only stats: Swoop and Para-Biddybud have identical stats yet took 86 and 21 places. So the weights are unchanged.
+- *Time trial* (speed 5, coin speed 3). Across the 35 records set since 1.7.0, the previous weights (speed 5, acceleration 1, mini-turbo 1, handling 1) put the record pairings at a median rank of 52 of 480, with 9 in the top 25. The new weights give a median of 16, with 21 in the top 25. Time trial courses have coins on them, and coin speed decides how soon a run gets the coin bonus.
+
+The Finder shows each stat class with the driver top players use most: in Time trial, the one holding the most records, otherwise the most-raced online. The meta builds are combos top players use, and their notes count from the data, so they stay true when it's refreshed.
