@@ -95,6 +95,7 @@ code { font: 800 .86em/1 ui-monospace, "JetBrains Mono", monospace; background: 
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   height: 42px; padding: 0 18px; border-radius: 999px; border: 0;
   font: 900 14px/1 var(--ui); letter-spacing: .02em; white-space: nowrap;
+  text-decoration: none;
   transition: transform .15s ease, background .15s ease, box-shadow .15s ease;
 }
 .btn:active { transform: translateY(1px) scale(.98); }
@@ -198,9 +199,9 @@ code { font: 800 .86em/1 ui-monospace, "JetBrains Mono", monospace; background: 
 .stage-arrow:active { transform: scale(.94); }
 .stage-bar {
   position: absolute; z-index: 5; left: 16px; right: 16px; bottom: 14px;
-  display: flex; gap: 8px; align-items: center;
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
 }
-.grow { flex: 1; }
+.stage-actions { display: flex; gap: 8px; margin-left: auto; }   /* drops to its own right-aligned row when the bar is too narrow */
 .btn:disabled, .stage-arrow:disabled { opacity: .45; cursor: default; }
 .btn-icon { width: 42px; padding: 0; }
 .btn-icon .off { display: none; }
@@ -210,7 +211,7 @@ code { font: 800 .86em/1 ui-monospace, "JetBrains Mono", monospace; background: 
 /* Shuffle: three rows that spin in the stage and stop one after another */
 .spin {
   --tile: 150px; --win: 166px;
-  position: absolute; z-index: 6; inset: 14px 14px 68px; display: grid; grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 10px;
+  position: absolute; z-index: 6; inset: 14px 14px calc(var(--bar-h, 42px) + 26px); display: grid; grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 10px;
   opacity: 0; visibility: hidden; transform: translateY(10px) scale(.985);
   transition: opacity .28s ease, transform .28s cubic-bezier(.2, .8, .2, 1), visibility .28s;
 }
@@ -688,8 +689,8 @@ dialog::backdrop { background: rgba(20,24,38,.45); backdrop-filter: blur(4px); }
   .stage-names { padding-right: 130px; }
   .stage-tags { position: relative; top: 0; right: 0; max-width: none; justify-content: flex-start; padding: 10px 20px 0; }
   .stage-bar { position: relative; left: 0; right: 0; bottom: 0; padding: 0 12px 12px; flex-wrap: wrap; }
-  .stage-bar .grow { display: none; }
-  .spin { --tile: 104px; --win: 116px; inset: 10px 10px 122px; gap: 8px; }
+  .stage-actions { display: contents; }
+  .spin { --tile: 104px; --win: 116px; inset: 10px 10px calc(var(--bar-h, 100px) + 22px); gap: 8px; }
   .spin-row[data-row="type"], .spin-row[data-row="vehicle"] { --tile: 148px; --win: 160px; }
   .spin-label { left: 10px; top: 8px; font-size: 11px; }
   .spin-tile.word b { font-size: 24px; }

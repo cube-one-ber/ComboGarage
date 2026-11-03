@@ -1258,6 +1258,8 @@ function wire() {
   $('#stage').addEventListener('keydown', e => { if (e.key === 'ArrowLeft') step(-1); if (e.key === 'ArrowRight') step(1); });
   $('#shuffle').onclick = shuffle;
   for (const ev of ['pointerenter', 'focus', 'touchstart']) $('#shuffle').addEventListener(ev, prepSpin, { passive: true });
+  // the bar wraps to two rows on narrower stages, so the reels follow its height to keep Skip uncovered
+  new ResizeObserver(() => $('#stage').style.setProperty('--bar-h', $('.stage-bar').offsetHeight + 'px')).observe($('.stage-bar'));
   try { sfx.on = localStorage.getItem('cg-sound') !== 'off'; } catch { /* storage off: keep the default */ }
   $('#soundToggle').setAttribute('aria-pressed', String(sfx.on));
   $('#soundToggle').onclick = () => {
