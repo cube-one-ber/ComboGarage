@@ -27,6 +27,10 @@ function s(tag, attrs, ...kids) {
   return el;
 }
 
+// Line icons on the same 20-unit grid and stroke as the vehicle chevrons. Usage: icon('plus')
+const ICON = { plus: 'M10 4.5v11M4.5 10h11', minus: 'M4.5 10h11', check: 'M4.5 10.5l3.5 3.5 7.5-8', close: 'M5.5 5.5l9 9M14.5 5.5l-9 9' };
+const icon = name => s('svg', { class: 'ico', viewBox: '0 0 20 20', width: 16, height: 16, 'aria-hidden': 'true' }, s('path', { d: ICON[name] }));
+
 /* ------------------------------------------------------------ stat definitions */
 const TERRAIN = { Tarmac: 'road', Gravel: 'off-road', Water: 'water' };
 const CORE = [
@@ -314,6 +318,7 @@ function renderStage(dc, vc, back) {
   if (vc && !calmMotion()) driveSwap(v, back, oldName); else setVehicleImage($('#stageVehicle'), v);
   const di = $('#stageDriver');
   di.src = dBig(d.id);
+  di.style.setProperty('--art', SMALL_ART[d.id] || 1);
   di.alt = d.name + (d.outfit === 'Standard' ? '' : ' in the ' + d.outfit + ' outfit');
   if (dc) { st.classList.remove('swap-d'); void st.offsetWidth; st.classList.add('swap-d'); }
   const rank = comboRank(d.cls, v.cls);
@@ -321,7 +326,8 @@ function renderStage(dc, vc, back) {
     rank === 1 ? h('span', { class: 'tag tag-hot', text: 'Online meta #1' }) : null,
     d.opens ? h('span', { class: 'tag', text: plural(d.opens, 'top-100 place') }) : null,
     comboRecords(d, v) ? h('span', { class: 'tag tag-record', text: plural(comboRecords(d, v), 'time trial record') }) : null,
-    h('span', { class: 'tag', text: v.rideLabel }), h('span', { class: 'tag', text: d.cls }), h('span', { class: 'tag', text: v.cls }),
+    h('span', { class: 'tag', text: v.rideLabel }),
+    h('span', { class: 'tag tag-class', title: 'Stat classes: everything in a class has the same stats', text: `Class ${d.cls} · ${v.cls}` }),
   ].filter(Boolean));
   const box = $('#outfits');
   const list = d.char.outfits.length > 1 ? d.char.outfits : [];
@@ -378,11 +384,12 @@ function renderStats() {
     h('span', { class: 'ms-num', style: `--p:${sc}`, text: sc }),
     h('span', { class: 'ms-text' }, h('b', { text: `Online meta score · #${rank} of ${usedD.length * usedV.length}` }), h('br'), 'Scored with the Online meta weights on road.'));
 
+  const names = list => list.flatMap((n, i) => [i ? ', ' : '', h('span', { class: 'nowrap', text: n })]);   // a name never breaks across lines
   const dt = D.characters.filter(c => c.cls === d.cls && c.name !== d.name).map(c => c.name);
   const vt = D.vehicles.filter(x => x.cls === v.cls && x.id !== v.id).map(x => x.name);
   $('#twins').replaceChildren(...[
-    dt.length ? h('div', {}, h('b', { text: 'Same stats as ' + d.name + ': ' }), dt.join(', ')) : null,
-    vt.length ? h('div', {}, h('b', { text: 'Same stats as ' + v.name + ': ' }), vt.join(', ')) : null,
+    dt.length ? h('div', {}, h('b', { text: 'Same stats as ' + d.name + ': ' }), names(dt)) : null,
+    vt.length ? h('div', {}, h('b', { text: 'Same stats as ' + v.name + ': ' }), names(vt)) : null,
   ].filter(Boolean));
 
   const rows = D.order.map((k, i) => {
@@ -549,13 +556,15 @@ function renderImpact() {
     svg.append(s('text', { class: 'tick', x: x(t), y: H - 6, 'text-anchor': 'middle' }, '×' + t.toFixed(1)));
   }
   IMPACT.forEach((k, i) => {
-    const [a, b] = ranges[k], ra = ratio(k, a), rb = ratio(k, b), y = top + i * rowH + rowH / 2;
+    const [a, b] = ranges[k], ra = ratio(k, a), rb = ratio(k, b), y = top + i * rowH + rowH / 2, w = x(rb) - x(ra);
     const lab = D.labels[D.order.indexOf(k)], cur = ratio(k, level(state.driver.cls, state.vehicle.cls, k));
     const g = s('g', { tabindex: '0', 'aria-label': `${lab}: ${fmtRatio(ra)} to ${fmtRatio(rb)}. ${STAT_INFO[k]}` },
       s('rect', { class: 'hit', x: 0, y: y - rowH / 2, width: W, height: rowH }),
       s('text', { class: 'lab', x: 0, y: y + 4 }, lab),
-      s('rect', { x: x(ra), y: y - 5, width: Math.max(4, x(rb) - x(ra)), height: 10, rx: 4, fill: 'var(--seq-3)' }),
+      s('rect', { x: x(ra), y: y - 5, width: w, height: 10, rx: Math.min(4, w / 2), fill: 'var(--seq-3)' }),
       s('circle', { cx: x(cur), cy: y, r: 5.5, fill: 'var(--ink)', stroke: '#fff', 'stroke-width': 2 }),
+      // a range not much wider than the dot gets end caps, drawn over the dot so they stay whole
+      w < 24 ? [x(ra), x(rb)].map(cx => s('line', { x1: cx, x2: cx, y1: y - 10, y2: y + 10, stroke: 'var(--seq-6)', 'stroke-width': 2.5, 'stroke-linecap': 'round' })) : null,
       s('text', { class: 'val', x: W, y: y + 4, 'text-anchor': 'end' }, `×${ra.toFixed(2)}–×${rb.toFixed(2)}`));
     tipOn(g, () => statTip(k, lab));
     svg.append(g);
@@ -573,19 +582,20 @@ function coinPlot(box, { label, lo, hi, base, ticks, tick, read, series }) {
   const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': label });
   for (const t of ticks) {
     svg.append(s('line', { class: t === base ? 'base-line' : 'grid-line', x1: L, x2: W - R, y1: y(t), y2: y(t) }));
-    svg.append(s('text', { class: 'tick', x: L - 8, y: y(t) + 4, 'text-anchor': 'end' }, tick(t)));
+    if (!(n === 0 && t === ticks.at(-1))) svg.append(s('text', { class: 'tick', x: L - 8, y: y(t) + 4, 'text-anchor': 'end' }, tick(t)));   // the coin flag covers the top label at 0
   }
   for (const c of [0, 5, 10, 15, 20]) svg.append(s('text', { class: 'tick', x: x(c), y: H - 16, 'text-anchor': 'middle' }, c));
   svg.append(s('text', { class: 'axis-label', x: (L + W - R) / 2, y: H - 1, 'text-anchor': 'middle' }, 'Coins held'));
   for (const sr of series) {
     let d = '';
     for (let c = 0; c <= COIN_MAX; c += 0.25) d += `${c ? 'L' : 'M'}${x(c).toFixed(1)} ${y(sr.at(c)).toFixed(1)}`;
-    svg.append(s('path', { d, fill: 'none', stroke: sr.color, 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+    svg.append(s('path', { d, fill: 'none', stroke: sr.color, 'stroke-width': 2, 'stroke-linecap': sr.dash ? 'butt' : 'round', 'stroke-linejoin': 'round', 'stroke-dasharray': sr.dash ? '6 5' : null }));
   }
-  const ends = series.filter(sr => sr.tag).map(sr => ({ tag: sr.tag, py: y(sr.at(COIN_MAX)) })).sort((a, b) => a.py - b.py);
+  const ends = series.filter(sr => sr.tag).map(sr => ({ tag: sr.tag, color: sr.color, py: y(sr.at(COIN_MAX)) })).sort((a, b) => a.py - b.py);
   ends.forEach((e, i) => {   // identical lines end on the same spot, so their labels stack
     if (i) e.py = Math.max(e.py, ends[i - 1].py + 14);
-    svg.append(s('text', { class: 'end-label', x: W - R + 7, y: e.py + 4 }, e.tag));
+    svg.append(s('rect', { x: W - R + 5, y: e.py - 4, width: 8, height: 8, rx: 2, style: `fill:${e.color}` }));   // the combo's colour, as on its card
+    svg.append(s('text', { class: 'end-label', x: W - R + 16, y: e.py + 4 }, e.tag));
   });
   svg.append(s('line', { class: 'coin-mark', x1: x(n), x2: x(n), y1: T, y2: H - B }));
   for (const sr of series) svg.append(s('circle', { cx: x(n), cy: y(sr.at(n)), r: 4.5, fill: sr.color, stroke: '#fff', 'stroke-width': 2 }));
@@ -633,14 +643,14 @@ function renderCoins() {
   const series = [
     { short: 'Highest coin speed', r: ratio(k, b), color: 'var(--s1)' },
     { short: 'Lowest coin speed', r: ratio(k, a), color: 'var(--s2)' },
-    { short: 'Your combo', r: me, color: 'var(--ink)' },
+    { short: 'Your combo', r: me, color: 'var(--ink)', dash: true },   // dashed, so a line it sits on still shows
   ].map(sr => ({ ...sr, name: `${sr.short} (${fmtRatio(sr.r)})`, at: c => coinBonus(sr.r, c) }));
   const read = v => `+${v.toFixed(1)}%`;
   coinPlot($('#coinChart'), {
     label: 'Speed bonus by coins held, for the highest and lowest coin speed and your combo',
     lo: 0, hi: 5, base: 0, ticks: [0, 1, 2, 3, 4, 5], tick: p => `+${p}%`, read, series,
   });
-  $('#coinLegend').replaceChildren(...series.map(sr => h('li', {}, h('i', { class: 'key key-line', style: `background:${sr.color}` }), sr.name)));
+  $('#coinLegend').replaceChildren(...series.map(sr => h('li', {}, h('i', { class: 'key key-line', style: sr.dash ? `background:repeating-linear-gradient(90deg, ${sr.color} 0 6px, transparent 6px 9px)` : `background:${sr.color}` }), sr.name)));
   const cols = [...new Set([1, 5, 10, 15, 20, state.coins || 1])].sort((x, y) => x - y), now = c => (c === state.coins ? 'now' : null);
   $('#coinTable').replaceChildren(h('table', {},
     h('thead', {}, h('tr', {}, h('th', { scope: 'col', text: 'Coins held' }), cols.map(c => h('th', { scope: 'col', class: now(c), text: c })))),
@@ -717,7 +727,7 @@ function renderOpen() {
   const sum = t => [...groups.values()].filter(g => t(D.driverClasses[g.cls].Weight)).reduce((a, g) => a + g.n, 0);
   $('#openSummary').replaceChildren(...top.map(g => {
     const row = h('div', { class: 'open-bar', tabindex: '0', 'aria-label': `${g.cls}: ${g.n} of ${total}, ${g.names.join(', ')}` },
-      h('span', { text: g.names[0] + (g.names.length > 1 ? ` +${g.names.length - 1}` : '') }),
+      h('span', { class: 'open-name' }, g.names[0], g.names.length > 1 ? h('small', { text: ` & ${g.names.length - 1} more` }) : null),
       h('span', { class: 'bar-wrap' }, h('span', { class: 'bar', style: `width:${g.n / max * 100}%` })),
       h('span', { class: 'num', text: g.n }));
     row.addEventListener('pointerenter', () => lit(g.names));
@@ -817,10 +827,14 @@ const BUILDS = [
     return `Level ${lv} speed on road, off-road and water alike. Bowser holds ${plural(n, 'time trial record')} on it, and the Reel Racer appears in ${all} of ${use.records}.`;
   } },
 ];
+// Art whose figure fills far less of its frame than the rest, scaled up in the hero and the combo cards
+const SMALL_ART = { Driver_Basabasa_00: 1.5, Driver_FishBone_00: 1.3 };
+// Art cut square at the right edge of its frame; the cards fade that edge out
+const CUT_ART = new Set('Bull DK DKOffroad Koopa KoopaHotrod KoopaOffroad KoopaRacing KoopaRiders Luigi LuigiDesert LuigiLagoonCity LuigiMechanic LuigiOffroad LuigiRacing MarioOffroad MarioSheriff WaluigiDiner WaluigiHorror WaluigiMariachi WaluigiRacing WaluigiStadium Wario WarioDiner WarioFactory WarioPirate WarioRacing'.split(' ').map(n => `Driver_${n}_00`));
 function comboArt(d, v, extra) {
   return h('div', { class: extra || 'result-art' },
     h('img', { class: 'v', src: vCard(v.id), alt: '', loading: 'lazy' }),
-    h('img', { class: 'd', src: dBig(d.id), alt: '', loading: 'lazy' }));
+    h('img', { class: 'd', src: dBig(d.id), alt: '', loading: 'lazy', 'data-cut': CUT_ART.has(d.id), style: SMALL_ART[d.id] ? `--art:${SMALL_ART[d.id]}` : null }));
 }
 function levelChips(d, v, terrain = 'Tarmac', ids = ['speed', 'accel', 'mt', 'handling', 'coin']) {
   return h('div', { class: 'lv-row' }, CORE.filter(c => ids.includes(c.id)).map(c => {
@@ -835,13 +849,14 @@ function renderBuilds() {
     return h('article', { class: 'build' },
       comboArt(d, v, 'build-art'),
       h('div', { class: 'build-body' },
-        h('p', { class: 'eyebrow', text: b.title }),
-        h('h4', { text: `${d.name} + ${v.name}` }),
+        h('div', { class: 'build-head' },
+          h('p', { class: 'eyebrow', text: b.title }),
+          h('h4', {}, `${d.name} +`, h('br'), v.name)),   // always two lines, so the four card heads line up
         h('p', { text: b.note() }),
         levelChips(d, v),
         h('div', { class: 'build-actions' },
           h('button', { class: 'btn btn-primary btn-sm', type: 'button', onclick: () => { setCombo(d, v); $('#garage').scrollIntoView(); toast('Loaded into the garage'); } }, 'Load'),
-          h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: () => addCompare({ d: d.id, v: v.id }) }, '+ Compare'))));
+          h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: () => addCompare({ d: d.id, v: v.id }) }, icon('plus'), 'Compare'))));
   }));
 }
 function renderGlossary() {
@@ -930,7 +945,8 @@ function renderFinderResults() {
   }));
   renderMap(list);
 }
-const SEQ = ['--seq-1', '--seq-2', '--seq-3', '--seq-4', '--seq-5', '--seq-6', '--seq-7'];
+// Map dot colours, low to high score. --seq-1 is left out: too faint for a dot on white.
+const SEQ = ['--seq-2', '--seq-3', '--seq-4', '--seq-5', '--seq-6', '--seq-7'];
 function renderMap(list) {
   const f = state.finder, W = 760, H = 440, L = 46, R = 16, T = 14, B = 46;
   const cx = CORE.find(c => c.id === f.x), cy = CORE.find(c => c.id === f.y), kx = cx.key(f.terrain), ky = cy.key(f.terrain);
@@ -967,7 +983,7 @@ function renderMap(list) {
     const best = c.items[0], r = clamp(3.5 + Math.sqrt(c.items.length) * 1.6, 4, 9);
     const g = s('g', { class: 'cell', tabindex: '0', 'aria-label': `${cx.name} ${c.X}, ${cy.name} ${c.Y}: ${c.items.length} pairing${c.items.length > 1 ? 's' : ''}` },
       s('rect', { class: 'hit', x: x(c.X) - stepX / 2, y: y(c.Y) - stepY / 2, width: stepX, height: stepY }),
-      s('circle', { class: 'dot', cx: x(c.X), cy: y(c.Y), r, fill: tone(best.score), stroke: '#fff', 'stroke-width': 2 }));
+      s('circle', { class: 'dot', cx: x(c.X), cy: y(c.Y), r, fill: tone(best.score), stroke: 'var(--seq-4)', 'stroke-width': 1 }));
     const load = () => { setCombo(repDriver(best.dc), repVehicle(best.vc)); toast('Loaded into the garage'); };
     g.addEventListener('click', load);
     g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); load(); } });
@@ -1009,13 +1025,13 @@ function renderCompare() {
     list.map(c => h('article', { class: 'panel cmp-card' },
       comboArt(c.d, c.v),
       h('span', { class: 'cmp-swatch' }, h('i', { style: `background:${SLOT[c.slot]}` }), 'ABC'[c.slot]),
-      h('button', { class: 'icon-btn', type: 'button', 'aria-label': `Remove ${c.d.name} on ${c.v.name}`, onclick: () => removeCompare({ d: c.d.id, v: c.v.id }) }, '×'),
+      h('button', { class: 'icon-btn', type: 'button', 'aria-label': `Remove ${c.d.name} on ${c.v.name}`, onclick: () => removeCompare({ d: c.d.id, v: c.v.id }) }, icon('close')),
       h('div', { class: 'cmp-body' }, h('h4', { text: `${c.d.name} + ${c.v.name}` }),
-        h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: () => { setCombo(c.d, c.v); $('#garage').scrollIntoView(); } }, 'Load')))),
+        h('button', { class: 'btn btn-primary btn-sm', type: 'button', onclick: () => { setCombo(c.d, c.v); $('#garage').scrollIntoView(); } }, 'Load')))),
     free.map((slot, i) => h('div', { class: 'cmp-add', style: `--slot:${SLOT[slot]}` },
       h('span', { class: 'cmp-letter', 'aria-hidden': 'true', text: 'ABC'[slot] }),
       i === 0
-        ? h('div', {}, h('p', { text: 'Use the current combo from the garage.' }), h('button', { class: 'btn btn-primary btn-sm', type: 'button', onclick: () => addCompare(pair()) }, '+ Add ' + state.driver.name + ' + ' + state.vehicle.name))
+        ? h('div', {}, h('p', { text: 'Use the current combo from the garage.' }), h('button', { class: 'btn btn-primary btn-sm', type: 'button', onclick: () => addCompare(pair()) }, icon('plus'), 'Add ' + state.driver.name + ' + ' + state.vehicle.name))
         : h('span', { text: 'Empty slot' }))));
   box.replaceChildren(cols);
   levels.replaceChildren();
@@ -1072,7 +1088,7 @@ function renderRace() {
     label: `${TERRAIN[t]} speed by coins held, for each combo`,
     lo: lo / 100, hi: hi / 100, base: 1, ticks, tick: v => '×' + v.toFixed(2), read: fmtRatio, series,
   });
-  $('#raceLegend').replaceChildren(...list.map(c => h('li', {}, h('i', { class: 'key key-line', style: `background:${SLOT[c.slot]}` }), `${'ABC'[c.slot]}: ${c.d.name} + ${c.v.name}`)));
+  $('#raceLegend').replaceChildren(...list.map(c => h('li', {}, h('i', { class: 'slot-key', style: `background:${SLOT[c.slot]}` }), `${'ABC'[c.slot]}: ${c.d.name} + ${c.v.name}`)));
   const lead = $('#raceLead');
   lead.hidden = list.length < 2;
   if (!lead.hidden) lead.textContent = `Fastest: ${coinLeaders(list, k)} coins`;
@@ -1083,7 +1099,7 @@ function renderRace() {
   };
   $('#raceTable').replaceChildren(h('table', {},
     h('thead', {}, h('tr', {}, h('th', { scope: 'col', text: 'Coins held' }), cols.map(c => h('th', { scope: 'col', class: c === state.coins ? 'now' : null, text: c })))),
-    h('tbody', {}, series.map(sr => h('tr', {}, h('td', { text: sr.short }), cols.map(c => cell(sr, c)))))));
+    h('tbody', {}, series.map(sr => h('tr', {}, h('td', {}, h('i', { class: 'slot-key', style: `background:${sr.color}` }), sr.short), cols.map(c => cell(sr, c)))))));
 }
 function renderSaved() {
   const box = $('#savedBody');
@@ -1094,7 +1110,7 @@ function renderSaved() {
     h('div', { class: 'cmp-body' }, h('h4', { text: `${d.name} + ${v.name}` }),
       h('div', { class: 'saved-actions' },
         h('button', { class: 'btn btn-primary btn-sm', type: 'button', onclick: () => { setCombo(d, v); $('#savedDialog').close(); } }, 'Load'),
-        h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: () => addCompare(p) }, '+ Compare'),
+        h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: () => addCompare(p) }, icon('plus'), 'Compare'),
         h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onclick: () => { state.saved = state.saved.filter(x => !same(x, p)); persist(); renderSaved(); syncButtons(); } }, 'Remove')))))));
 }
 function syncButtons() {
@@ -1102,7 +1118,10 @@ function syncButtons() {
   const sv = $('#save');
   sv.textContent = saved ? 'Saved' : 'Save combo';
   sv.setAttribute('aria-pressed', String(saved));
-  $('#addCompare').textContent = inCmp ? 'In compare' : '+ Compare';
+  const ac = $('#addCompare');
+  ac.replaceChildren(icon(inCmp ? 'check' : 'plus'), inCmp ? 'In compare' : 'Compare');
+  ac.setAttribute('aria-pressed', String(inCmp));
+  ac.title = inCmp ? 'Remove from compare' : '';
   const count = (id, n) => { const e = $(id); e.textContent = n; e.toggleAttribute('data-zero', !n); };
   count('#savedCount', state.saved.length);
   count('#compareCount', state.compare.length);
