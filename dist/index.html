@@ -75,18 +75,18 @@
     </div>
     <div class="stage-bar">
       <button class="btn btn-light" id="shuffle" type="button">Shuffle</button>
-      <a class="btn btn-primary" id="chooseCombo" href="#chooser">Choose a combo</a>
       <button class="btn btn-light btn-icon" id="soundToggle" type="button" aria-pressed="true" aria-label="Shuffle sound">
-        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4Z" fill="currentColor"/><path class="on" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.6 7.6 0 0 1 0 11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path class="off" d="m15.5 9.5 5 5m0-5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <svg viewBox="2.5 2.5 20 20" width="22" height="22" aria-hidden="true"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4Z" fill="currentColor"/><path class="on" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.6 7.6 0 0 1 0 11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path class="off" d="m15.5 9.5 5 5m0-5-5 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
       </button>
+      <a class="btn btn-light" id="chooseCombo" href="#chooser">Choose a combo</a>
       <div class="veh-nav" role="group" aria-label="Browse vehicles">
-        <button class="stage-arrow" id="prevVehicle" type="button" aria-label="Previous vehicle"><span aria-hidden="true">‹</span></button>
+        <button class="stage-arrow" id="prevVehicle" type="button" aria-label="Previous vehicle"><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M12.5 4.5 7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <span class="veh-nav-label" aria-hidden="true">Vehicle</span>
-        <button class="stage-arrow" id="nextVehicle" type="button" aria-label="Next vehicle"><span aria-hidden="true">›</span></button>
+        <button class="stage-arrow" id="nextVehicle" type="button" aria-label="Next vehicle"><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M7.5 4.5 13 10l-5.5 5.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       </div>
       <div class="stage-actions">
         <button class="btn btn-light" id="share" type="button">Copy link</button>
-        <button class="btn btn-light" id="addCompare" type="button">+ Compare</button>
+        <button class="btn btn-light" id="addCompare" type="button"><svg class="ico" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M10 4.5v11M4.5 10h11"/></svg>Compare</button>
         <button class="btn btn-primary" id="save" type="button">Save combo</button>
       </div>
     </div>
@@ -124,12 +124,12 @@
       </div>
     </div>
     <div class="coin-control">
-      <button class="stage-arrow" id="coinDown" type="button" aria-label="Drop a coin"><span aria-hidden="true">−</span></button>
+      <button class="stage-arrow" id="coinDown" type="button" aria-label="Drop a coin"><svg class="ico" viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M4.5 10h11"/></svg></button>
       <div class="coin-track">
         <div class="coin-pips" id="coinPips" aria-hidden="true"></div>
         <input id="coinRange" type="range" min="0" max="20" step="1" value="0" aria-labelledby="coinTitle">
       </div>
-      <button class="stage-arrow" id="coinUp" type="button" aria-label="Add a coin"><span aria-hidden="true">+</span></button>
+      <button class="stage-arrow" id="coinUp" type="button" aria-label="Add a coin"><svg class="ico" viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M10 4.5v11M4.5 10h11"/></svg></button>
     </div>
     <div class="coin-out">
       <p class="eyebrow" id="coinCaption">Top speed at 0 coins</p>
@@ -247,8 +247,10 @@
       <button type="button" data-terrain="Gravel" aria-pressed="false">Off-road</button>
       <button type="button" data-terrain="Water" aria-pressed="false">Water</button>
     </div>
-    <label class="check"><input type="checkbox" id="lockDriver"> Keep my driver</label>
-    <label class="check"><input type="checkbox" id="lockVehicle"> Keep my vehicle</label>
+    <span class="checks">
+      <label class="check"><input type="checkbox" id="lockDriver"> Keep my driver</label>
+      <label class="check"><input type="checkbox" id="lockVehicle"> Keep my vehicle</label>
+    </span>
   </div>
 
   <div class="finder-grid">
@@ -259,7 +261,7 @@
         <div class="map-head">
           <div>
             <h3 class="chart-title">Combo map</h3>
-            <p class="chart-sub">Every pairing by level. Darker means a higher score. The line joins pairings that nothing beats on both axes.</p>
+            <p class="chart-sub">Every pairing by level. Darker means a higher score; bigger dots hold more pairings. The line joins pairings that nothing beats on both axes.</p>
           </div>
           <div class="map-axes">
             <label class="select"><span class="muted">Across</span> <select id="axisX"></select></label>
@@ -336,7 +338,7 @@
 <dialog id="savedDialog" aria-labelledby="savedTitle">
   <div class="dialog-head">
     <h2 id="savedTitle" class="race">Saved combos</h2>
-    <button class="icon-btn" type="button" data-close aria-label="Close">×</button>
+    <button class="icon-btn" type="button" data-close aria-label="Close"><svg class="ico" viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M5.5 5.5l9 9M14.5 5.5l-9 9"/></svg></button>
   </div>
   <div id="savedBody"></div>
 </dialog>
